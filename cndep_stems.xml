@@ -1,0 +1,1049 @@
+<?xml version="1.0"?>
+<h:html xmlns="http://www.w3.org/2002/xforms" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:jr="http://openrosa.org/javarosa" xmlns:orx="http://openrosa.org/xforms" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <h:head>
+    <h:title>cndep_stems</h:title>
+    <model>
+      <itext>
+        <translation default="true()" lang="default">
+          <text id="static_instance-plot_id-49">
+            <value>63</value>
+          </text>
+          <text id="static_instance-plot_id-48">
+            <value>62</value>
+          </text>
+          <text id="static_instance-plot_id-43">
+            <value>55</value>
+          </text>
+          <text id="static_instance-plot_id-42">
+            <value>54</value>
+          </text>
+          <text id="static_instance-plot_id-41">
+            <value>52</value>
+          </text>
+          <text id="static_instance-plot_id-40">
+            <value>51</value>
+          </text>
+          <text id="static_instance-plot_id-47">
+            <value>60</value>
+          </text>
+          <text id="static_instance-plot_id-46">
+            <value>59</value>
+          </text>
+          <text id="static_instance-plot_id-45">
+            <value>57</value>
+          </text>
+          <text id="static_instance-plot_id-44">
+            <value>56</value>
+          </text>
+          <text id="static_instance-treatment-3">
+            <value>N+P</value>
+          </text>
+          <text id="static_instance-treatment-2">
+            <value>P</value>
+          </text>
+          <text id="static_instance-treatment-1">
+            <value>N</value>
+          </text>
+          <text id="static_instance-treatment-0">
+            <value>Control</value>
+          </text>
+          <text id="static_instance-yes_no-1">
+            <value>no</value>
+          </text>
+          <text id="static_instance-yes_no-0">
+            <value>yes</value>
+          </text>
+          <text id="static_instance-plot_id-38">
+            <value>49</value>
+          </text>
+          <text id="static_instance-plot_id-39">
+            <value>50</value>
+          </text>
+          <text id="static_instance-plot_id-36">
+            <value>46</value>
+          </text>
+          <text id="static_instance-plot_id-37">
+            <value>48</value>
+          </text>
+          <text id="static_instance-plot_id-34">
+            <value>44</value>
+          </text>
+          <text id="static_instance-plot_id-35">
+            <value>45</value>
+          </text>
+          <text id="static_instance-plot_id-32">
+            <value>42</value>
+          </text>
+          <text id="static_instance-plot_id-33">
+            <value>43</value>
+          </text>
+          <text id="static_instance-plot_id-30">
+            <value>38</value>
+          </text>
+          <text id="static_instance-plot_id-31">
+            <value>39</value>
+          </text>
+          <text id="static_instance-direction-0">
+            <value>N</value>
+          </text>
+          <text id="static_instance-direction-1">
+            <value>S</value>
+          </text>
+          <text id="static_instance-direction-2">
+            <value>W</value>
+          </text>
+          <text id="static_instance-direction-3">
+            <value>E</value>
+          </text>
+          <text id="static_instance-site-11">
+            <value>SNW</value>
+          </text>
+          <text id="static_instance-site-10">
+            <value>SNE</value>
+          </text>
+          <text id="static_instance-site-13">
+            <value>UMP</value>
+          </text>
+          <text id="static_instance-site-12">
+            <value>SRR</value>
+          </text>
+          <text id="static_instance-site-14">
+            <value>WTM</value>
+          </text>
+          <text id="static_instance-plot_id-29">
+            <value>37</value>
+          </text>
+          <text id="static_instance-plot_id-28">
+            <value>36</value>
+          </text>
+          <text id="static_instance-plot_id-25">
+            <value>33</value>
+          </text>
+          <text id="static_instance-plot_id-24">
+            <value>31</value>
+          </text>
+          <text id="static_instance-plot_id-27">
+            <value>35</value>
+          </text>
+          <text id="static_instance-plot_id-26">
+            <value>34</value>
+          </text>
+          <text id="static_instance-plot_id-21">
+            <value>27</value>
+          </text>
+          <text id="static_instance-plot_id-20">
+            <value>26</value>
+          </text>
+          <text id="static_instance-plot_id-23">
+            <value>29</value>
+          </text>
+          <text id="static_instance-plot_id-22">
+            <value>28</value>
+          </text>
+          <text id="static_instance-plot_id-10">
+            <value>14</value>
+          </text>
+          <text id="static_instance-plot_id-11">
+            <value>15</value>
+          </text>
+          <text id="static_instance-plot_id-12">
+            <value>16</value>
+          </text>
+          <text id="static_instance-plot_id-13">
+            <value>17</value>
+          </text>
+          <text id="static_instance-plot_id-14">
+            <value>18</value>
+          </text>
+          <text id="static_instance-plot_id-15">
+            <value>20</value>
+          </text>
+          <text id="static_instance-plot_id-16">
+            <value>21</value>
+          </text>
+          <text id="static_instance-plot_id-17">
+            <value>22</value>
+          </text>
+          <text id="static_instance-plot_id-18">
+            <value>23</value>
+          </text>
+          <text id="static_instance-plot_id-19">
+            <value>24</value>
+          </text>
+          <text id="static_instance-plot_id-6">
+            <value>9</value>
+          </text>
+          <text id="static_instance-plot_id-7">
+            <value>10</value>
+          </text>
+          <text id="static_instance-plot_id-4">
+            <value>6</value>
+          </text>
+          <text id="static_instance-plot_id-5">
+            <value>8</value>
+          </text>
+          <text id="static_instance-plot_id-2">
+            <value>4</value>
+          </text>
+          <text id="static_instance-plot_id-3">
+            <value>5</value>
+          </text>
+          <text id="static_instance-plot_id-0">
+            <value>1</value>
+          </text>
+          <text id="static_instance-plot_id-1">
+            <value>3</value>
+          </text>
+          <text id="static_instance-plot_id-8">
+            <value>12</value>
+          </text>
+          <text id="static_instance-plot_id-9">
+            <value>13</value>
+          </text>
+          <text id="static_instance-site-9">
+            <value>SMW</value>
+          </text>
+          <text id="static_instance-site-8">
+            <value>SME</value>
+          </text>
+          <text id="static_instance-site-5">
+            <value>MCS</value>
+          </text>
+          <text id="static_instance-site-4">
+            <value>MCN</value>
+          </text>
+          <text id="static_instance-site-7">
+            <value>PWP</value>
+          </text>
+          <text id="static_instance-site-6">
+            <value>MVP</value>
+          </text>
+          <text id="static_instance-site-1">
+            <value>EME</value>
+          </text>
+          <text id="static_instance-site-0">
+            <value>DBG</value>
+          </text>
+          <text id="static_instance-site-3">
+            <value>LDP</value>
+          </text>
+          <text id="static_instance-site-2">
+            <value>EMW</value>
+          </text>
+          <text id="static_instance-dead_NF-0">
+            <value>not found</value>
+          </text>
+          <text id="static_instance-dead_NF-1">
+            <value>dead (on branch or ground)</value>
+          </text>
+          <text id="static_instance-plot_id-54">
+            <value>68</value>
+          </text>
+          <text id="static_instance-plot_id-55">
+            <value>70</value>
+          </text>
+          <text id="static_instance-plot_id-56">
+            <value>71</value>
+          </text>
+          <text id="static_instance-plot_id-57">
+            <value>73</value>
+          </text>
+          <text id="static_instance-plot_id-50">
+            <value>64</value>
+          </text>
+          <text id="static_instance-plot_id-51">
+            <value>65</value>
+          </text>
+          <text id="static_instance-plot_id-52">
+            <value>66</value>
+          </text>
+          <text id="static_instance-plot_id-53">
+            <value>67</value>
+          </text>
+          <text id="static_instance-plot_id-58">
+            <value>74</value>
+          </text>
+          <text id="static_instance-plot_id-59">
+            <value>75</value>
+          </text>
+          <text id="static_instance-plant-4">
+            <value>L5</value>
+          </text>
+          <text id="static_instance-plant-0">
+            <value>L1</value>
+          </text>
+          <text id="static_instance-plant-1">
+            <value>L2</value>
+          </text>
+          <text id="static_instance-plant-2">
+            <value>L3</value>
+          </text>
+          <text id="static_instance-plant-3">
+            <value>L4</value>
+          </text>
+        </translation>
+      </itext>
+      <instance>
+        <cndep_stems id="cndep_stems">
+          <start/>
+          <end/>
+          <today/>
+          <site/>
+          <plot_id/>
+          <treatment/>
+          <survey_date/>
+          <plot_notes/>
+          <shrub jr:template="">
+            <plant_id/>
+            <plant_note/>
+            <old>
+              <old_stems jr:template="">
+                <old_direction/>
+                <oldLength/>
+              </old_stems>
+              <allStems/>
+              <old_stems_missing>
+                <north_missing/>
+                <south_missing/>
+                <west_missing/>
+                <east_missing/>
+              </old_stems_missing>
+            </old>
+            <new>
+              <new_stems jr:template="">
+                <new_direction/>
+                <newLength/>
+              </new_stems>
+            </new>
+          </shrub>
+          <meta>
+            <instanceID/>
+          </meta>
+        </cndep_stems>
+      </instance>
+      <instance id="plant">
+        <root>
+          <item>
+            <itextId>static_instance-plant-0</itextId>
+            <name>L1</name>
+          </item>
+          <item>
+            <itextId>static_instance-plant-1</itextId>
+            <name>L2</name>
+          </item>
+          <item>
+            <itextId>static_instance-plant-2</itextId>
+            <name>L3</name>
+          </item>
+          <item>
+            <itextId>static_instance-plant-3</itextId>
+            <name>L4</name>
+          </item>
+          <item>
+            <itextId>static_instance-plant-4</itextId>
+            <name>L5</name>
+          </item>
+        </root>
+      </instance>
+      <instance id="dead_NF">
+        <root>
+          <item>
+            <itextId>static_instance-dead_NF-0</itextId>
+            <name>not_found</name>
+          </item>
+          <item>
+            <itextId>static_instance-dead_NF-1</itextId>
+            <name>dead</name>
+          </item>
+        </root>
+      </instance>
+      <instance id="plot_id">
+        <root>
+          <item>
+            <itextId>static_instance-plot_id-0</itextId>
+            <name>1</name>
+            <site>LDP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-1</itextId>
+            <name>3</name>
+            <site>LDP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-2</itextId>
+            <name>4</name>
+            <site>LDP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-3</itextId>
+            <name>5</name>
+            <site>LDP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-4</itextId>
+            <name>6</name>
+            <site>UMP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-5</itextId>
+            <name>8</name>
+            <site>UMP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-6</itextId>
+            <name>9</name>
+            <site>UMP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-7</itextId>
+            <name>10</name>
+            <site>UMP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-8</itextId>
+            <name>12</name>
+            <site>SRR</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-9</itextId>
+            <name>13</name>
+            <site>SRR</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-10</itextId>
+            <name>14</name>
+            <site>SRR</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-11</itextId>
+            <name>15</name>
+            <site>SRR</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-12</itextId>
+            <name>16</name>
+            <site>MCN</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-13</itextId>
+            <name>17</name>
+            <site>MCN</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-14</itextId>
+            <name>18</name>
+            <site>MCN</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-15</itextId>
+            <name>20</name>
+            <site>MCN</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-16</itextId>
+            <name>21</name>
+            <site>MCS</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-17</itextId>
+            <name>22</name>
+            <site>MCS</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-18</itextId>
+            <name>23</name>
+            <site>MCS</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-19</itextId>
+            <name>24</name>
+            <site>MCS</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-20</itextId>
+            <name>26</name>
+            <site>SME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-21</itextId>
+            <name>27</name>
+            <site>SME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-22</itextId>
+            <name>28</name>
+            <site>SME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-23</itextId>
+            <name>29</name>
+            <site>SME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-24</itextId>
+            <name>31</name>
+            <site>PWP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-25</itextId>
+            <name>33</name>
+            <site>PWP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-26</itextId>
+            <name>34</name>
+            <site>PWP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-27</itextId>
+            <name>35</name>
+            <site>PWP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-28</itextId>
+            <name>36</name>
+            <site>MVP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-29</itextId>
+            <name>37</name>
+            <site>MVP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-30</itextId>
+            <name>38</name>
+            <site>MVP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-31</itextId>
+            <name>39</name>
+            <site>MVP</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-32</itextId>
+            <name>42</name>
+            <site>SMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-33</itextId>
+            <name>43</name>
+            <site>SMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-34</itextId>
+            <name>44</name>
+            <site>SMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-35</itextId>
+            <name>45</name>
+            <site>SMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-36</itextId>
+            <name>46</name>
+            <site>DBG</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-37</itextId>
+            <name>48</name>
+            <site>DBG</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-38</itextId>
+            <name>49</name>
+            <site>DBG</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-39</itextId>
+            <name>50</name>
+            <site>DBG</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-40</itextId>
+            <name>51</name>
+            <site>SNE</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-41</itextId>
+            <name>52</name>
+            <site>SNE</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-42</itextId>
+            <name>54</name>
+            <site>SNE</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-43</itextId>
+            <name>55</name>
+            <site>SNE</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-44</itextId>
+            <name>56</name>
+            <site>SNW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-45</itextId>
+            <name>57</name>
+            <site>SNW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-46</itextId>
+            <name>59</name>
+            <site>SNW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-47</itextId>
+            <name>60</name>
+            <site>SNW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-48</itextId>
+            <name>62</name>
+            <site>EMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-49</itextId>
+            <name>63</name>
+            <site>EMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-50</itextId>
+            <name>64</name>
+            <site>EMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-51</itextId>
+            <name>65</name>
+            <site>EMW</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-52</itextId>
+            <name>66</name>
+            <site>EME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-53</itextId>
+            <name>67</name>
+            <site>EME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-54</itextId>
+            <name>68</name>
+            <site>EME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-55</itextId>
+            <name>70</name>
+            <site>EME</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-56</itextId>
+            <name>71</name>
+            <site>WTM</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-57</itextId>
+            <name>73</name>
+            <site>WTM</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-58</itextId>
+            <name>74</name>
+            <site>WTM</site>
+          </item>
+          <item>
+            <itextId>static_instance-plot_id-59</itextId>
+            <name>75</name>
+            <site>WTM</site>
+          </item>
+        </root>
+      </instance>
+      <instance id="direction">
+        <root>
+          <item>
+            <itextId>static_instance-direction-0</itextId>
+            <name>N</name>
+          </item>
+          <item>
+            <itextId>static_instance-direction-1</itextId>
+            <name>S</name>
+          </item>
+          <item>
+            <itextId>static_instance-direction-2</itextId>
+            <name>W</name>
+          </item>
+          <item>
+            <itextId>static_instance-direction-3</itextId>
+            <name>E</name>
+          </item>
+        </root>
+      </instance>
+      <instance id="site">
+        <root>
+          <item>
+            <itextId>static_instance-site-0</itextId>
+            <name>DBG</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-1</itextId>
+            <name>EME</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-2</itextId>
+            <name>EMW</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-3</itextId>
+            <name>LDP</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-4</itextId>
+            <name>MCN</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-5</itextId>
+            <name>MCS</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-6</itextId>
+            <name>MVP</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-7</itextId>
+            <name>PWP</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-8</itextId>
+            <name>SME</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-9</itextId>
+            <name>SMW</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-10</itextId>
+            <name>SNE</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-11</itextId>
+            <name>SNW</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-12</itextId>
+            <name>SRR</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-13</itextId>
+            <name>UMP</name>
+          </item>
+          <item>
+            <itextId>static_instance-site-14</itextId>
+            <name>WTM</name>
+          </item>
+        </root>
+      </instance>
+      <instance id="treatment">
+        <root>
+          <item>
+            <itextId>static_instance-treatment-0</itextId>
+            <name>C1</name>
+          </item>
+          <item>
+            <itextId>static_instance-treatment-1</itextId>
+            <name>N</name>
+          </item>
+          <item>
+            <itextId>static_instance-treatment-2</itextId>
+            <name>P</name>
+          </item>
+          <item>
+            <itextId>static_instance-treatment-3</itextId>
+            <name>N+P</name>
+          </item>
+        </root>
+      </instance>
+      <instance id="yes_no">
+        <root>
+          <item>
+            <itextId>static_instance-yes_no-0</itextId>
+            <name>yes</name>
+          </item>
+          <item>
+            <itextId>static_instance-yes_no-1</itextId>
+            <name>no</name>
+          </item>
+        </root>
+      </instance>
+      <bind jr:preload="timestamp" jr:preloadParams="start" nodeset="/cndep_stems/start" type="dateTime"/>
+      <bind jr:preload="timestamp" jr:preloadParams="end" nodeset="/cndep_stems/end" type="dateTime"/>
+      <bind jr:preload="date" jr:preloadParams="today" nodeset="/cndep_stems/today" type="date"/>
+      <bind nodeset="/cndep_stems/site" required="true()" type="select1"/>
+      <bind nodeset="/cndep_stems/plot_id" required="true()" type="select1"/>
+      <bind nodeset="/cndep_stems/treatment" type="select1"/>
+      <bind nodeset="/cndep_stems/survey_date" required="true()" type="date"/>
+      <bind nodeset="/cndep_stems/plot_notes" type="string"/>
+      <bind nodeset="/cndep_stems/shrub/plant_id" required="true()" type="select1"/>
+      <bind nodeset="/cndep_stems/shrub/plant_note" type="string"/>
+      <bind nodeset="/cndep_stems/shrub/old/old_stems/old_direction" required="true()" type="select1"/>
+      <bind nodeset="/cndep_stems/shrub/old/old_stems/oldLength" type="int"/>
+      <bind nodeset="/cndep_stems/shrub/old/allStems" type="select1"/>
+      <bind nodeset="/cndep_stems/shrub/old/old_stems_missing" relevant=" /cndep_stems/shrub/old/allStems ='no'"/>
+      <bind constraint="not(selected(., 'not_found') and selected(., 'dead'))" nodeset="/cndep_stems/shrub/old/old_stems_missing/north_missing" type="select"/>
+      <bind constraint="not(selected(., 'not_found') and selected(., 'dead'))" nodeset="/cndep_stems/shrub/old/old_stems_missing/south_missing" type="select"/>
+      <bind constraint="not(selected(., 'not_found') and selected(., 'dead'))" nodeset="/cndep_stems/shrub/old/old_stems_missing/west_missing" type="select"/>
+      <bind constraint="not(selected(., 'not_found') and selected(., 'dead'))" nodeset="/cndep_stems/shrub/old/old_stems_missing/east_missing" type="select"/>
+      <bind nodeset="/cndep_stems/shrub/new/new_stems/new_direction" required="true()" type="select1"/>
+      <bind nodeset="/cndep_stems/shrub/new/new_stems/newLength" type="int"/>
+      <bind calculate="concat('uuid:', uuid())" nodeset="/cndep_stems/meta/instanceID" readonly="true()" type="string"/>
+    </model>
+  </h:head>
+  <h:body>
+    <select1 ref="/cndep_stems/site">
+      <label>site</label>
+      <item>
+        <label>DBG</label>
+        <value>DBG</value>
+      </item>
+      <item>
+        <label>EME</label>
+        <value>EME</value>
+      </item>
+      <item>
+        <label>EMW</label>
+        <value>EMW</value>
+      </item>
+      <item>
+        <label>LDP</label>
+        <value>LDP</value>
+      </item>
+      <item>
+        <label>MCN</label>
+        <value>MCN</value>
+      </item>
+      <item>
+        <label>MCS</label>
+        <value>MCS</value>
+      </item>
+      <item>
+        <label>MVP</label>
+        <value>MVP</value>
+      </item>
+      <item>
+        <label>PWP</label>
+        <value>PWP</value>
+      </item>
+      <item>
+        <label>SME</label>
+        <value>SME</value>
+      </item>
+      <item>
+        <label>SMW</label>
+        <value>SMW</value>
+      </item>
+      <item>
+        <label>SNE</label>
+        <value>SNE</value>
+      </item>
+      <item>
+        <label>SNW</label>
+        <value>SNW</value>
+      </item>
+      <item>
+        <label>SRR</label>
+        <value>SRR</value>
+      </item>
+      <item>
+        <label>UMP</label>
+        <value>UMP</value>
+      </item>
+      <item>
+        <label>WTM</label>
+        <value>WTM</value>
+      </item>
+    </select1>
+    <select1 ref="/cndep_stems/plot_id">
+      <label>plod ID</label>
+      <itemset nodeset="instance('plot_id')/root/item[site= /cndep_stems/site ]">
+        <value ref="name"/>
+        <label ref="jr:itext(itextId)"/>
+      </itemset>
+    </select1>
+    <select1 ref="/cndep_stems/treatment">
+      <label>treatment</label>
+      <item>
+        <label>Control</label>
+        <value>C1</value>
+      </item>
+      <item>
+        <label>N</label>
+        <value>N</value>
+      </item>
+      <item>
+        <label>P</label>
+        <value>P</value>
+      </item>
+      <item>
+        <label>N+P</label>
+        <value>N+P</value>
+      </item>
+    </select1>
+    <input ref="/cndep_stems/survey_date">
+      <label>date</label>
+    </input>
+    <input ref="/cndep_stems/plot_notes">
+      <label>note about plot</label>
+    </input>
+    <group ref="/cndep_stems/shrub">
+      <label>concat('shrub_', <output value=" /cndep_stems/shrub/plant_id "/>)</label>
+      <repeat nodeset="/cndep_stems/shrub">
+        <select1 ref="/cndep_stems/shrub/plant_id">
+          <label>plant</label>
+          <item>
+            <label>L1</label>
+            <value>L1</value>
+          </item>
+          <item>
+            <label>L2</label>
+            <value>L2</value>
+          </item>
+          <item>
+            <label>L3</label>
+            <value>L3</value>
+          </item>
+          <item>
+            <label>L4</label>
+            <value>L4</value>
+          </item>
+          <item>
+            <label>L5</label>
+            <value>L5</value>
+          </item>
+        </select1>
+        <input ref="/cndep_stems/shrub/plant_note">
+          <label>note about plant</label>
+        </input>
+        <group ref="/cndep_stems/shrub/old">
+          <label>old</label>
+          <group ref="/cndep_stems/shrub/old/old_stems">
+            <label>old_stems</label>
+            <repeat nodeset="/cndep_stems/shrub/old/old_stems">
+              <select1 ref="/cndep_stems/shrub/old/old_stems/old_direction">
+                <label>direction</label>
+                <item>
+                  <label>N</label>
+                  <value>N</value>
+                </item>
+                <item>
+                  <label>S</label>
+                  <value>S</value>
+                </item>
+                <item>
+                  <label>W</label>
+                  <value>W</value>
+                </item>
+                <item>
+                  <label>E</label>
+                  <value>E</value>
+                </item>
+              </select1>
+              <input ref="/cndep_stems/shrub/old/old_stems/oldLength">
+                <label>old length</label>
+              </input>
+            </repeat>
+          </group>
+          <select1 ref="/cndep_stems/shrub/old/allStems">
+            <label>were all stems found?</label>
+            <item>
+              <label>yes</label>
+              <value>yes</value>
+            </item>
+            <item>
+              <label>no</label>
+              <value>no</value>
+            </item>
+          </select1>
+          <group appearance="field-list" ref="/cndep_stems/shrub/old/old_stems_missing">
+            <label>stems_missing</label>
+            <select ref="/cndep_stems/shrub/old/old_stems_missing/north_missing">
+              <label>north</label>
+              <item>
+                <label>not found</label>
+                <value>not_found</value>
+              </item>
+              <item>
+                <label>dead (on branch or ground)</label>
+                <value>dead</value>
+              </item>
+            </select>
+            <select ref="/cndep_stems/shrub/old/old_stems_missing/south_missing">
+              <label>south</label>
+              <item>
+                <label>not found</label>
+                <value>not_found</value>
+              </item>
+              <item>
+                <label>dead (on branch or ground)</label>
+                <value>dead</value>
+              </item>
+            </select>
+            <select ref="/cndep_stems/shrub/old/old_stems_missing/west_missing">
+              <label>west</label>
+              <item>
+                <label>not found</label>
+                <value>not_found</value>
+              </item>
+              <item>
+                <label>dead (on branch or ground)</label>
+                <value>dead</value>
+              </item>
+            </select>
+            <select ref="/cndep_stems/shrub/old/old_stems_missing/east_missing">
+              <label>east</label>
+              <item>
+                <label>not found</label>
+                <value>not_found</value>
+              </item>
+              <item>
+                <label>dead (on branch or ground)</label>
+                <value>dead</value>
+              </item>
+            </select>
+          </group>
+        </group>
+        <group ref="/cndep_stems/shrub/new">
+          <label>new</label>
+          <group ref="/cndep_stems/shrub/new/new_stems">
+            <label>new_stems</label>
+            <repeat nodeset="/cndep_stems/shrub/new/new_stems">
+              <select1 ref="/cndep_stems/shrub/new/new_stems/new_direction">
+                <label>direction</label>
+                <item>
+                  <label>N</label>
+                  <value>N</value>
+                </item>
+                <item>
+                  <label>S</label>
+                  <value>S</value>
+                </item>
+                <item>
+                  <label>W</label>
+                  <value>W</value>
+                </item>
+                <item>
+                  <label>E</label>
+                  <value>E</value>
+                </item>
+              </select1>
+              <input ref="/cndep_stems/shrub/new/new_stems/newLength">
+                <label>new length</label>
+              </input>
+            </repeat>
+          </group>
+        </group>
+      </repeat>
+    </group>
+  </h:body>
+</h:html>
