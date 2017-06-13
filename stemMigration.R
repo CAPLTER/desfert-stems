@@ -9,17 +9,13 @@ library('RPostgreSQL')
 library('tidyverse')
 
 # database connections ----
-con <- dbConnect(dbDriver("PostgreSQL"),
-                 user="srearl",
-                 dbname="caplter",
-                 host="stegosaurus.gios.asu.edu",
-                 password=.rs.askForPassword("Enter password:"))
+source('~/Documents/localSettings/pg_prod.R')
+source('~/Documents/localSettings/pg_local.R')
 
-con <- dbConnect(dbDriver("PostgreSQL"),
-                 user="srearl",
-                 dbname="working",
-                 host="localhost",
-                 password=.rs.askForPassword("Enter password:"))
+pg <- pg_prod
+pg <- pg_local
+
+dbGetInfo(pg)
 
 # bring in processed files ----
 # SET WORKING DIRECTORY!!!
