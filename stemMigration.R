@@ -4,7 +4,6 @@
 library(RPostgreSQL)
 library(tidyverse)
 library(stringr)
-library(magrittr)
 
 # database connections ----
 source('~/Documents/localSettings/pg_prod.R')
@@ -24,11 +23,12 @@ old <- read_csv('cndep_stems_old_old_stems.csv')
 
 # begin data manipulation ----
 # ISO date
-plots %<>% 
-  mutate(survey_date = as.POSIXct(survey_date, format = "%b %e, %Y"))
+plots <- plots %>% 
+  mutate(survey_date = as.Date(survey_date, format = "%b %e, %Y"))
+  # mutate(survey_date = as.POSIXct(survey_date, format = "%b %e, %Y"))
 
 # first change name of 'KEY' column in plants to avoid confusion later
-plants %<>% 
+plants <- plants %>% 
   rename(superkey = KEY)
 
 # merge plots and plants data from tablets
@@ -44,7 +44,7 @@ direction <- data.frame(direction, stringsAsFactors = F)
 plotsplants <- merge(plotsplants, direction, all=T)
 
 # merge notes about missing stems into a single column
-plotsplants %<>%
+plotsplants <- plotsplants %>% 
   mutate(`old-old_stems_missing-north_missing` = replace(`old-old_stems_missing-north_missing`, direction != 'North', '')) %>% 
   mutate(`old-old_stems_missing-south_missing` = replace(`old-old_stems_missing-south_missing`, direction != 'South', '')) %>% 
   mutate(`old-old_stems_missing-west_missing` = replace(`old-old_stems_missing-west_missing`, direction != 'West', '')) %>% 
@@ -165,151 +165,155 @@ for (i in 1:length(data)) {
 
 # SQL run sequentially! ----
 
-# change datetime from R to type date; 
+# change datetime from R to type date (but see note below); 
 # prep for and add shrub_ids to the plotsplants tablet-derived data; 
 # prep for and add stem_id generated from insert of new stems to plotsplants (a later step); 
 # add stem_id generated from update of old stems to plotsplants (a later step)
+
+# survey_date may already be type data, check first and comment/uncomment
+# statement as appropariate
 dbExecute(pg,'
-          ALTER TABLE stems_temp.plotsplants
-            ALTER COLUMN survey_date TYPE DATE,
-            ADD COLUMN shrub_id INTEGER,
-            ADD COLUMN stem_id_new INTEGER,
-            ADD COLUMN stem_id_old integer')
+ALTER TABLE stems_temp.plotsplants
+  -- ALTER COLUMN survey_date TYPE DATE,
+  ADD COLUMN shrub_id INTEGER,
+  ADD COLUMN stem_id_new INTEGER,
+  ADD COLUMN stem_id_old integer')
 
 dbExecute(pg,'
-          UPDATE stems_temp.plotsplants
-          SET shrub_id = urbancndep.shrubs.id
-          FROM urbancndep.shrubs
-          WHERE
-            urbancndep.shrubs.plot_id = plotsplants.plot_id AND
-            urbancndep.shrubs.code = plotsplants.plant_id;')
+UPDATE stems_temp.plotsplants
+SET shrub_id = urbancndep.shrubs.id
+FROM urbancndep.shrubs
+WHERE
+  urbancndep.shrubs.plot_id = plotsplants.plot_id AND
+  urbancndep.shrubs.code = plotsplants.plant_id;')
 
-# update pg.stems with post date & post notes - BE SURE to set month & year to
-# the correct pre data, which should be the most recent set (may include
-# multiple months)
+# update existing pg.stems with this survey's post date & notes
+
+# BE CERTAIN to set month & year to the correct pre date, which should be the most
+# recent set (may include multiple months)
 dbExecute(pg,"
-          UPDATE urbancndep.stems
-          SET
-            post_date = plotsplants.survey_date,
-            post_note = plotsplants.postnote
-          FROM stems_temp.plotsplants
-          WHERE
-            plotsplants.shrub_id = urbancndep.stems.shrub_id AND
-            plotsplants.direction = urbancndep.stems.direction AND
-            # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-            # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
+UPDATE urbancndep.stems
+SET
+  post_date = plotsplants.survey_date,
+  post_note = plotsplants.postnote
+FROM stems_temp.plotsplants
+WHERE
+  plotsplants.shrub_id = urbancndep.stems.shrub_id AND
+  plotsplants.direction = urbancndep.stems.direction AND
+  # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
+  # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
 
-            # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-            # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
+  # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
+  # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
 
 # insert pre data into pg.stems
 dbExecute(pg,"
-          INSERT INTO urbancndep.stems
-          (
-            shrub_id,
-            direction,
-            pre_date
-          )
-          (
-           SELECT
-            shrub_id,
-            direction,
-            survey_date
-           FROM stems_temp.plotsplants
-          );")
+INSERT INTO urbancndep.stems
+(
+  shrub_id,
+  direction,
+  pre_date
+)
+(
+ SELECT
+  shrub_id,
+  direction,
+  survey_date
+ FROM stems_temp.plotsplants
+);")
 
 # add stem_id generated from insert of new stems to plotsplants
 dbExecute(pg,"
-          UPDATE stems_temp.plotsplants
-          SET stem_id_new = urbancndep.stems.id
-          FROM urbancndep.stems
-          WHERE
-            urbancndep.stems.shrub_id = plotsplants.shrub_id AND
-            urbancndep.stems.direction = plotsplants.direction AND
-            urbancndep.stems.pre_date = plotsplants.survey_date;") # note pre_date used here!
+UPDATE stems_temp.plotsplants
+SET stem_id_new = urbancndep.stems.id
+FROM urbancndep.stems
+WHERE
+  urbancndep.stems.shrub_id = plotsplants.shrub_id AND
+  urbancndep.stems.direction = plotsplants.direction AND
+  urbancndep.stems.pre_date = plotsplants.survey_date;") # note pre_date used here!
 
 # add stem_id generated from update of old stems to plotsplants
 dbExecute(pg,"
-          UPDATE stems_temp.plotsplants
-          SET stem_id_old = urbancndep.stems.id
-          FROM urbancndep.stems
-          WHERE
-            urbancndep.stems.shrub_id = plotsplants.shrub_id AND
-            urbancndep.stems.direction = plotsplants.direction AND
-            urbancndep.stems.post_date = plotsplants.survey_date;") # note post_date used here!
+UPDATE stems_temp.plotsplants
+SET stem_id_old = urbancndep.stems.id
+FROM urbancndep.stems
+WHERE
+  urbancndep.stems.shrub_id = plotsplants.shrub_id AND
+  urbancndep.stems.direction = plotsplants.direction AND
+  urbancndep.stems.post_date = plotsplants.survey_date;") # note post_date used here!
 
 # prep for and add stem_id generated from update of stems to old;
 # prep it add boolean to denote post measurement
 dbExecute(pg,"
-          ALTER TABLE stems_temp.old
-          ADD COLUMN stem_id INTEGER,
-          ADD COLUMN postmeas boolean;")
+ALTER TABLE stems_temp.old
+  ADD COLUMN stem_id INTEGER,
+  ADD COLUMN postmeas boolean;")
 
 dbExecute(pg,'
-          UPDATE stems_temp.old
-          SET stem_id = plotsplants.stem_id_old
-          FROM stems_temp.plotsplants
-          WHERE
-            plotsplants.superkey = old."PARENT_KEY" AND
-            plotsplants.dir = old.old_direction;')
+UPDATE stems_temp.old
+SET stem_id = plotsplants.stem_id_old
+FROM stems_temp.plotsplants
+WHERE
+  plotsplants.superkey = old."PARENT_KEY" AND
+  plotsplants.dir = old.old_direction;')
 
 # add boolean TRUE to denote post measurement
 dbExecute(pg,'
-          UPDATE stems_temp.old
-          SET postmeas=TRUE;')
+UPDATE stems_temp.old
+SET postmeas=TRUE;')
 
 # insert old lengths into pg.stem_lengths
 dbExecute(pg,'
-          INSERT INTO urbancndep.stem_lengths
-          (
-            stem_id,
-            length_in_mm,
-            post_measurement
-          )
-          (
-           SELECT
-            stem_id,
-            "oldLength",
-            postmeas
-           FROM stems_temp.old
-           WHERE "oldLength" IS NOT NULL
-          );')
+INSERT INTO urbancndep.stem_lengths
+(
+  stem_id,
+  length_in_mm,
+  post_measurement
+)
+(
+ SELECT
+  stem_id,
+  "oldLength",
+  postmeas
+ FROM stems_temp.old
+ WHERE "oldLength" IS NOT NULL
+);')
 
 # prep for and add stem_id generated from insert of stems to new;
 # prep boolean FALSE to denote post measurement (later step)
 dbExecute(pg,'
-          ALTER TABLE stems_temp.new
-            ADD COLUMN stem_id integer,
-            ADD COLUMN postmeas boolean;')
+ALTER TABLE stems_temp.new
+  ADD COLUMN stem_id integer,
+  ADD COLUMN postmeas boolean;')
 
 dbExecute(pg,'
-          UPDATE stems_temp.new
-          SET stem_id = plotsplants.stem_id_new
-          FROM stems_temp.plotsplants
-          WHERE
-            plotsplants.superkey = new."PARENT_KEY" AND
-            plotsplants.dir = new.new_direction;')
+UPDATE stems_temp.new
+SET stem_id = plotsplants.stem_id_new
+FROM stems_temp.plotsplants
+WHERE
+  plotsplants.superkey = new."PARENT_KEY" AND
+  plotsplants.dir = new.new_direction;')
 
 dbExecute(pg,'
-          UPDATE stems_temp.new
-          SET postmeas=FALSE;')
+UPDATE stems_temp.new
+SET postmeas=FALSE;')
 
 # insert new lengths into pg.stem_lengths
 dbExecute(pg,'
-          INSERT INTO urbancndep.stem_lengths
-          (
-            stem_id,
-            length_in_mm,
-            post_measurement
-          )
-          (
-           SELECT
-            stem_id,
-            "newLength",
-            postmeas
-           FROM stems_temp.new
-           WHERE "newLength" is not null
-          );')
+INSERT INTO urbancndep.stem_lengths
+(
+  stem_id,
+  length_in_mm,
+  post_measurement
+)
+(
+ SELECT
+  stem_id,
+  "newLength",
+  postmeas
+ FROM stems_temp.new
+ WHERE "newLength" is not null
+);')
 
 # insert any notes about the plants into the stems_comment table by setting
 # post_measuremnt to TRUE, the query assumes the comment was made upon old
@@ -317,19 +321,19 @@ dbExecute(pg,'
 # corresponding to the new collection, though dead or new plant might be an
 # example. Just be cognizant of this and edit as required.
 dbExecute(pg,"
-          INSERT INTO urbancndep.stem_comment
-          (
-            stem_id,
-            comment,
-            post_measurement
-          )
-          (
-           SELECT
-             stem_id_old, -- forces association with old lenghts (post visit)
-             plant_note,
-             'TRUE' -- forces association with old lengths (post visit)
-           FROM stems_temp.plotsplants
-           WHERE plant_note not like '');")
+INSERT INTO urbancndep.stem_comment
+(
+  stem_id,
+  comment,
+  post_measurement
+)
+(
+ SELECT
+   stem_id_old, -- forces association with old lenghts (post visit)
+   plant_note,
+   'TRUE' -- forces association with old lengths (post visit)
+ FROM stems_temp.plotsplants
+ WHERE plant_note not like '');")
 
 # note that comments about the plot are not considered in this workflow and will
 # need to be addressed if it ever comes up
@@ -369,7 +373,8 @@ new_null <- function() {
     
   }
   
-  aframe %<>% arrange(plot_id, plant_id, new_direction)
+  aframe <- aframe %>% 
+    arrange(plot_id, plant_id, new_direction)
   
   return(aframe)
   
@@ -410,7 +415,8 @@ new_missing <- function() {
     
   }
   
-  aframe %<>% arrange(plot_id, plant_id, new_direction)
+  aframe <- aframe %>%
+    arrange(plot_id, plant_id, new_direction)
   
   return(aframe)
   
@@ -423,10 +429,10 @@ INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
   SELECT id, NULL, FALSE
   FROM urbancndep.stems
   WHERE 
-  	EXTRACT (YEAR FROM pre_date) = 2017 AND
+  	EXTRACT (YEAR FROM pre_date) = 2018 AND
   	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 66 AND code LIKE 'L4') AND
-  	direction ILIKE 'e%'
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 34 AND code LIKE 'L5') AND
+  	direction ILIKE 'n%'
 );")
   
 dbExecute(pg, "
@@ -434,10 +440,10 @@ INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
 (
   SELECT id, NULL, FALSE
   FROM urbancndep.stems
-  WHERE EXTRACT (YEAR FROM pre_date) = 2017 AND
+  WHERE EXTRACT (YEAR FROM pre_date) = 2018 AND
   	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 14 AND code LIKE 'L5') AND
-  	direction ILIKE 'n%'
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 67 AND code LIKE 'L3') AND
+  	direction ILIKE 'w%'
 );")
 
 # add comment(s) about missing value(s)
@@ -447,10 +453,10 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
   SELECT id, FALSE, 'missing value'
   FROM urbancndep.stems
   WHERE 
-  	EXTRACT (YEAR FROM pre_date) = 2017 AND
+  	EXTRACT (YEAR FROM pre_date) = 2018 AND
   	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 66 AND code LIKE 'L4') AND
-  	direction ILIKE 'e%'
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 34 AND code LIKE 'L5') AND
+  	direction ILIKE 'n%'
 );")
 
 dbExecute(pg, "
@@ -458,10 +464,10 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
 (
   SELECT id, FALSE, 'missing value'
   FROM urbancndep.stems
-  WHERE EXTRACT (YEAR FROM pre_date) = 2017 AND
+  WHERE EXTRACT (YEAR FROM pre_date) = 2018 AND
   	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 14 AND code LIKE 'L5') AND
-  	direction ILIKE 'n%'
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 67 AND code LIKE 'L3') AND
+  	direction ILIKE 'w%'
 );")
           
           
