@@ -1,10 +1,10 @@
 #!/bin/bash
 
 topdir=/home/srearl/Desktop/superfolder
-dir1=ar 
-dir2=cr
-# dir3=br
-# dir4=cr
+dir1=alpha 
+dir2=bravo
+dir3=charlie
+dir4=delta
 
 
 for f in $topdir/$dir1/*.csv

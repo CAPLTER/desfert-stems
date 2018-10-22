@@ -1,11 +1,13 @@
-  
-# libraries ----
+
+# libraries ---------------------------------------------------------------
 
 library(RPostgreSQL)
 library(tidyverse)
 library(stringr)
 
-# database connections ----
+
+# database connections ----------------------------------------------------
+
 source('~/Documents/localSettings/pg_prod.R')
 source('~/Documents/localSettings/pg_local.R')
 
@@ -14,15 +16,19 @@ pg <- pg_local
 
 dbGetInfo(pg)
 
-# bring in processed files ----
+
+# data import -------------------------------------------------------------
 
 plots <- read_csv('cndep_stems.csv')
-plants <- read_csv('cndep_stems_shrub.csv')
-new <- read_csv('cndep_stems_new_new_stems.csv')
-old <- read_csv('cndep_stems_old_old_stems.csv')
+plants <- read_csv('cndep_stems-shrub.csv')
+new <- read_csv('cndep_stems-new-new_stems.csv')
+old <- read_csv('cndep_stems-old-old_stems.csv')
 
-# begin data manipulation ----
+
+# data manipulation (R) ---------------------------------------------------
+
 # ISO date
+
 plots <- plots %>% 
   mutate(survey_date = as.Date(survey_date, format = "%b %e, %Y"))
   # mutate(survey_date = as.POSIXct(survey_date, format = "%b %e, %Y"))
@@ -68,7 +74,13 @@ plotsplants <- plotsplants %>%
          'direction',
          'postnote')
 
-# preliminary error checking ----
+# tibble of distinct plot notes (new as of 2018-10-22)
+plotnotes <- plotsplants %>% 
+  filter(!is.na(plot_notes)) %>% 
+  distinct(plot_id, plot_notes, survey_date)
+  
+  
+# prelimary error checking ------------------------------------------------
 
 # should be n sites * 16 per plant ID
 plotsplants %>%
@@ -123,13 +135,13 @@ newLengths <- inner_join(plots, plants, by = c('KEY' = 'PARENT_KEY')) %>%
          newLength) %>%
   arrange(plot_id, plant_id, new_direction)
 
-# Any entries with a count less than four suggest missing data for a given 
-# direction. Run the following to checks to see if there is a problem and
-# possible fix with the raw data but see the section 'address missing new
-# values' about how to address situations where there simply are no new
-# measurements for a particular direction. Addressing this includes specifying
-# that values for the missing directions are NULL and adding a comment to the
-# stems comment table.
+# Any entries with a count less than four suggest missing data for a given
+# direction. Run the following checks to see if there is a problem and possible
+# fix with the raw data but see the section 'address missing NEW values' about
+# how to address situations where there simply are no new measurements for a
+# particular direction. Addressing this includes specifying that values for the
+# missing directions are NULL and adding a comment to the stems comment table.
+
 newLengths %>%
   group_by(plot_id, plant_id) %>%
   summarise(count = n_distinct(new_direction)) %>%
@@ -144,11 +156,12 @@ newLengths %>%
 oldLengths %>%
   filter(is.na(oldLength))
 
-# add data to database ----
+
+# add raw data to temp postgres tables ------------------------------------
 
 # put the data in a list for faster writing to pg
-data <- list(new, old, plotsplants)
-names(data) <- c('new', 'old', 'plotsplants')
+data <- list(new, old, plotsplants, plotnotes)
+names(data) <- c('new', 'old', 'plotsplants', 'plotnotes')
 
 # create a new schema called stems_temp in pg then loop through list items to push them to postgresql
 dbExecute(pg, 'DROP SCHEMA IF EXISTS stems_temp CASCADE;')
@@ -163,21 +176,25 @@ for (i in 1:length(data)) {
 
 }
 
-# SQL run sequentially! ----
 
-# change datetime from R to type date (but see note below); 
+# data manipulation (SQL) -------------------------------------------------
+
+# run SQL run sequentially!
+
+# change datetime from R to type date (may already be in that format - relic
+# from earlier code but does not hurt to leave this it in);
 # prep for and add shrub_ids to the plotsplants tablet-derived data; 
 # prep for and add stem_id generated from insert of new stems to plotsplants (a later step); 
 # add stem_id generated from update of old stems to plotsplants (a later step)
 
-# survey_date may already be type data, check first and comment/uncomment
-# statement as appropariate
 dbExecute(pg,'
 ALTER TABLE stems_temp.plotsplants
   -- ALTER COLUMN survey_date TYPE DATE,
   ADD COLUMN shrub_id INTEGER,
   ADD COLUMN stem_id_new INTEGER,
   ADD COLUMN stem_id_old integer')
+
+# add shrub ID from urbancndep
 
 dbExecute(pg,'
 UPDATE stems_temp.plotsplants
@@ -191,7 +208,34 @@ WHERE
 
 # BE CERTAIN to set month & year to the correct pre date, which should be the most
 # recent set (may include multiple months)
-dbExecute(pg,"
+
+# Get the month and date of the most recent previous stems survey to pass to the
+# update query. Note that this query is specific to when the last set of stems
+# were measured in a single month (e.g., 5 or 10). If stem surveys spanned
+# multiple months, which is rare but has happened, you either need to update the
+# query or pass those values manually.
+
+# Resource for passing an array to a query in cases where collections spanned
+# multiple months - not developed yet given the rarity of this situation:
+# ```
+# Hi, there is a way which I am using. Just create a dataframe in which put all
+# your list values in a single cell separated by comma(Put quotes around value
+# is you are passing string). Then in sqlinterpolate, refer to that column.
+# Example: query3<-sqlInterpolate(ANSI(),query2,tst = pop$pop_id) Here tst is
+# the variable in Sql query in which I'm passing values stored in Pop_id
+# column(note:- All values in a single cell)
+# https://github.com/r-dbi/DBI/issues/193
+# ```
+
+recentPreDate <- dbGetQuery(pg, '
+SELECT
+  DISTINCT EXTRACT(MONTH FROM pre_date) AS recentmos, EXTRACT(YEAR FROM pre_date) as recentyear
+FROM
+  urbancndep.stems
+WHERE
+  EXTRACT(YEAR FROM pre_date) = (SELECT MAX(EXTRACT(YEAR FROM pre_date)) FROM urbancndep.stems);')
+
+baseUpdatePostQuery <- '
 UPDATE urbancndep.stems
 SET
   post_date = plotsplants.survey_date,
@@ -200,11 +244,20 @@ FROM stems_temp.plotsplants
 WHERE
   plotsplants.shrub_id = urbancndep.stems.shrub_id AND
   plotsplants.direction = urbancndep.stems.direction AND
+  EXTRACT(MONTH from urbancndep.stems.pre_date) IN (?preMonths) AND
+  EXTRACT(YEAR from urbancndep.stems.pre_date) = ?preYear;'
+
+  # to address manually, change the last two lines of baseUpdatePostQuery to:
   # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
   # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
 
-  # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-  # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
+updatePostQuery <- sqlInterpolate(ANSI(),
+                                  baseUpdatePostQuery,
+                                  preMonths = recentPreDate$recentmos,
+                                  preYear = recentPreDate$recentyear)
+
+
+dbExecute(pg, updatePostQuery)
 
 # insert pre data into pg.stems
 dbExecute(pg,"
@@ -338,7 +391,24 @@ INSERT INTO urbancndep.stem_comment
 # note that comments about the plot are not considered in this workflow and will
 # need to be addressed if it ever comes up
 
-# address missing new values ----
+# add plot notes (new as of 2018-10-22)
+
+dbExecute(pg,"
+INSERT INTO urbancndep.stem_plot_notes
+(
+  plot_id,
+  survey_date,
+  plot_notes
+)
+(
+ SELECT
+  plot_id,
+  survey_date,
+  plot_notes
+ FROM stems_temp.plotnotes);")
+          
+
+# address missing NEW values ----------------------------------------------
 
 # identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
@@ -380,11 +450,11 @@ new_null <- function() {
   
 }
 
-# identify the details of any missing new stems using new_missing(). We need to 
-# document cases where there are not any data for a particular direction of a 
-# plant. Here we find the details of the missing plant using new_missing(). We 
-# can then use these details to construct our update statements, two for 
-# direction without a new measurment: one to document the NULL value for that 
+# Identify the details of any missing new stems using new_missing(). We need to
+# document cases where there are not any data for a particular direction of a
+# plant. Here we find the details of the missing plant using new_missing(). We
+# can then use these details to construct our update statements, two for
+# direction without a new measurment: one to document the NULL value for that
 # direction, and two to add a comment in the comments table. The next step would
 # be to generate the update statement based on new_missing() output instead of
 # manually constructing each update statement as done here.
@@ -422,7 +492,10 @@ new_missing <- function() {
   
 }
 
-# where missing, add NULL value to stem length
+
+# Where missing, add NULL value to stem length - use details from new_missing()
+# to populate year, month, plot, plant, and direction. Do this for each missing
+# stem.
 dbExecute(pg, "
 INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
 (
@@ -430,23 +503,15 @@ INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
   FROM urbancndep.stems
   WHERE 
   	EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 34 AND code LIKE 'L5') AND
-  	direction ILIKE 'n%'
+  	EXTRACT (MONTH FROM pre_date) = 10 AND
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 3 AND code LIKE 'L5') AND
+  	direction ILIKE 's%'
 );")
   
-dbExecute(pg, "
-INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
-(
-  SELECT id, NULL, FALSE
-  FROM urbancndep.stems
-  WHERE EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 67 AND code LIKE 'L3') AND
-  	direction ILIKE 'w%'
-);")
-
-# add comment(s) about missing value(s)
+          
+# Where missing, add comment to stem comments - use details from new_missing()
+# to populate year, month, plot, plant, and direction. Do this for each missing
+# stem.
 dbExecute(pg, "
 INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
 (
@@ -454,26 +519,10 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
   FROM urbancndep.stems
   WHERE 
   	EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 34 AND code LIKE 'L5') AND
-  	direction ILIKE 'n%'
+  	EXTRACT (MONTH FROM pre_date) = 10 AND
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 3 AND code LIKE 'L5') AND
+  	direction ILIKE 's%'
 );")
-
-dbExecute(pg, "
-INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
-(
-  SELECT id, FALSE, 'missing value'
-  FROM urbancndep.stems
-  WHERE EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 5 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 67 AND code LIKE 'L3') AND
-  	direction ILIKE 'w%'
-);")
-          
-          
-          
-
-
 
 
 # post-entry error checking ----
@@ -505,6 +554,7 @@ LEFT JOIN urbancndep.stem_comment sc ON (sc.stem_id = st.id AND sl.post_measurem
 WHERE
   EXTRACT (YEAR FROM st.pre_date) = YEAR_OF_INTEREST
 ORDER BY sl.post_measurement, p.id, st.pre_date, sh.code, st.direction;
+
 
 # clean up (if you want) ----
 
