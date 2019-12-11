@@ -21,8 +21,8 @@ dbGetInfo(pg)
 
 plots <- read_csv('cndep_stems.csv')
 plants <- read_csv('cndep_stems-shrub.csv')
-new <- read_csv('cndep_stems-new-new_stems.csv')
-old <- read_csv('cndep_stems-old-old_stems.csv')
+new <- read_csv('cndep_stems-new_stems.csv')
+old <- read_csv('cndep_stems-old_stems.csv')
 
 
 # data manipulation (R) ---------------------------------------------------
@@ -147,6 +147,11 @@ newLengths %>%
   summarise(count = n_distinct(new_direction)) %>%
   filter(count < 4)
 
+newLengths %>%
+  group_by(site, plot_id) %>%
+  summarize(count = (n_distinct(plant_id))) %>%
+  filter(count < 5)
+
 # looking for new-length NAs
 newLengths %>%
   filter(is.na(newLength))
@@ -253,8 +258,9 @@ WHERE
 
 updatePostQuery <- sqlInterpolate(ANSI(),
                                   baseUpdatePostQuery,
-                                  preMonths = recentPreDate$recentmos,
-                                  preYear = recentPreDate$recentyear)
+                                  preMonths = max(recentPreDate$recentmos),
+                                  preYear = max(recentPreDate$recentyear)
+                                  )
 
 
 dbExecute(pg, updatePostQuery)
@@ -493,22 +499,22 @@ new_missing <- function() {
 }
 
 
-# Where missing, add NULL value to stem length - use details from new_missing()
-# to populate year, month, plot, plant, and direction. Do this for each missing
-# stem.
+# Where missing, add NULL value to stem length - use details from new_missing().
+# But note that new_missing() will not catch all, see error checking for
+# newLenghts above. to populate year, month, plot, plant, and direction. Do this
+# for each missing stem.
 dbExecute(pg, "
 INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
 (
   SELECT id, NULL, FALSE
   FROM urbancndep.stems
   WHERE 
-  	EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 10 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 3 AND code LIKE 'L5') AND
-  	direction ILIKE 's%'
+  	EXTRACT (YEAR FROM pre_date) = 2019 AND
+  	EXTRACT (MONTH FROM pre_date) = 5 AND
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 35 AND code LIKE 'L2') AND
+  	direction ILIKE 'w%'
 );")
   
-          
 # Where missing, add comment to stem comments - use details from new_missing()
 # to populate year, month, plot, plant, and direction. Do this for each missing
 # stem.
@@ -518,10 +524,10 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
   SELECT id, FALSE, 'missing value'
   FROM urbancndep.stems
   WHERE 
-  	EXTRACT (YEAR FROM pre_date) = 2018 AND
-  	EXTRACT (MONTH FROM pre_date) = 10 AND
-  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 3 AND code LIKE 'L5') AND
-  	direction ILIKE 's%'
+  	EXTRACT (YEAR FROM pre_date) = 2019 AND
+  	EXTRACT (MONTH FROM pre_date) = 5 AND
+  	shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 35 AND code LIKE 'L2') AND
+  	direction ILIKE 'e%'
 );")
 
 
@@ -536,6 +542,7 @@ SELECT
   sp.scientific_name,
   sh.code AS shrub_code,
   sh.note AS shrub_note,
+  st.id,
   st.direction,
   st.pre_date,
   st.post_date,
