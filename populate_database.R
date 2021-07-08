@@ -291,10 +291,6 @@ INSERT INTO urbancndep.stem_plot_notes
 
 # address missing NEW values ----------------------------------------------
 
-# The raw xml workflow was developed for the fall 2020 season. There were not
-# any missing values in that collection so workflow to address new missing
-# values has not been updated to the xml workflow.
-
 # identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
 # null value and no other values. If that is the case, you may have to treat
@@ -303,7 +299,14 @@ INSERT INTO urbancndep.stem_plot_notes
 # the database and thus avoid having a missing direction. So, for example, in
 # May 2017, there was a NULL value at WTM-71-L1-E but there was another
 # measurement for E so we could simple ignore that NULL value
-new_null <- function() {
+
+new_null <- function(workflow = "XML") {
+
+  if (workflow == "XML") {
+
+    newLengths <- new
+
+  }
 
   dirSym <- c("N", "S", "W", "E")
   dirSym <- data.frame(dirSym, stringsAsFactors = F)
@@ -344,7 +347,14 @@ new_null <- function() {
 # direction, and two to add a comment in the comments table. The next step would
 # be to generate the update statement based on new_missing() output instead of
 # manually constructing each update statement as done here.
-new_missing <- function() {
+
+new_missing <- function(workflow = "XML") {
+
+  if (workflow == "XML") {
+
+    newLengths <- new
+
+  }
 
   dirSym <- c("N", "S", "W", "E")
   dirSym <- data.frame(dirSym, stringsAsFactors = F)

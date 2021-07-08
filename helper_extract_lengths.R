@@ -45,7 +45,10 @@ extract_old_lengths <- function(xml_file) {
     mutate(
       site = xml2::xml_text(xml2::xml_find_all(xml_file, "site")),
       plot_id = xml2::xml_integer(xml2::xml_find_all(xml_file, "plot_id")),
-      survey_date = xml2::xml_text(xml2::xml_find_all(xml_file, "survey_date"))
+      survey_date = xml2::xml_text(xml2::xml_find_all(xml_file, "survey_date")),
+      survey_start = xml2::xml_text(xml2::xml_find_all(xml_file, "start")),
+      survey_end = xml2::xml_text(xml2::xml_find_all(xml_file, "end")),
+      instance_id = xml2::xml_text(xml2::xml_find_all(xml_file, "meta"))
     )
 
     return(old_lengths)
@@ -78,7 +81,10 @@ extract_new_lengths <- function(xml_file) {
     mutate(
       site = xml2::xml_text(xml2::xml_find_all(xml_file, "site")),
       plot_id = xml2::xml_integer(xml2::xml_find_all(xml_file, "plot_id")),
-      survey_date = xml2::xml_text(xml2::xml_find_all(xml_file, "survey_date"))
+      survey_date = xml2::xml_text(xml2::xml_find_all(xml_file, "survey_date")),
+      survey_start = xml2::xml_text(xml2::xml_find_all(xml_file, "start")),
+      survey_end = xml2::xml_text(xml2::xml_find_all(xml_file, "end")),
+      instance_id = xml2::xml_text(xml2::xml_find_all(xml_file, "meta"))
     )
 
     return(new_lengths)
