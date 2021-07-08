@@ -26,14 +26,14 @@ source("./helper_extract_plots_plants.R")
 # identify xml files from field tablets
 
 alpha <- list.files(
-  path = "~/Desktop/stems_fall/alpha/instances",
+  path = "path_to_alpha/instances",
   pattern = "xml",
   full.names = TRUE,
   recursive = TRUE
 )
 
 delta <- list.files(
-  path = "~/Desktop/stems_fall/delta/instances",
+  path = "path_to_delta/instances",
   pattern = "xml",
   full.names = TRUE,
   recursive = TRUE
@@ -83,14 +83,16 @@ plotsplants %>%
   group_by(plot_id) %>%
   summarise(count = n()) %>%
   ungroup() %>%
-  arrange(desc(count))
+  arrange(desc(count)) |>
+  print(n = Inf)
 
 # Any entries with a count less than four suggest missing data for a given
 # direction. Run the following checks to see if there is a problem and possible
-# fix with the raw data but see the section "address missing NEW values" about
-# how to address situations where there simply are no new measurements for a
-# particular direction. Addressing this includes specifying that values for the
-# missing directions are NULL and adding a comment to the stems comment table.
+# fix with the raw data but see the section "address missing NEW values" of
+# populate_database.R about how to address situations where there simply are no
+# new measurements for a particular direction. Addressing this includes
+# specifying that values for the missing directions are NULL and adding a comment
+# to the stems comment table.
 
 new %>%
   group_by(plot_id, plant_id) %>%
