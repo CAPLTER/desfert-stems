@@ -67,10 +67,14 @@ plot_plants <- tibble::tibble(nodeset = shrubs_list) %>%
 # not all plants have notes - adjust unnessting accordingly
 if ("plant_note" %in% colnames(plot_plants)) {
 
-  plot_plants <- plot_plants %>%
-    select(plant_id, plant_note) %>%
-    unnest_wider(plant_id) %>%
-    unnest_longer(plant_note)
+  plot_plants <- plot_plants |>
+    dplyr::select(plant_id, plant_note) |>
+    tidyr::unnest_wider(plant_id) |>
+    tidyr::unnest_longer(plant_note) |>
+    dplyr::mutate(
+      plant_note = gsub("[\n\r]", " ", plant_note),
+      plant_note = stringr::str_trim(plant_note, side = c("both"))
+    )
 
 } else {
 

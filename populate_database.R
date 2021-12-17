@@ -11,12 +11,6 @@
 # values has not been updated to the xml workflow.
 
 
-# LIBRARIES --------------------------------------------------------------------
-
-library(tidyverse)
-library(stringr)
-
-
 # add raw data to temp postgres tables ------------------------------------
 
 # put the data in a list for faster writing to pg
@@ -117,7 +111,7 @@ updatePostQuery <- sqlInterpolate(
   ANSI(),
   baseUpdatePostQuery,
   preMonths = max(recentPreDate$recentmos),
-  preYear = max(recentPreDate$recentyear)
+  preYear   = max(recentPreDate$recentyear)
 )
 
 dbExecute(pg, updatePostQuery)
@@ -318,7 +312,7 @@ new_null <- function(workflow = "XML") {
 
   for (i in 1:nrow(nullvalues)) {
 
-    plot <- nullvalues[i, ]$plot_id
+    plot  <- nullvalues[i, ]$plot_id
     plant <- nullvalues[i, ]$plant_id
 
     aframe <- bind_rows(
@@ -338,6 +332,8 @@ new_null <- function(workflow = "XML") {
   return(aframe)
 
 }
+
+new_null()
 
 # Identify the details of any missing new stems using new_missing(). We need to
 # document cases where there are not any data for a particular direction of a
@@ -360,24 +356,24 @@ new_missing <- function(workflow = "XML") {
   dirSym <- data.frame(dirSym, stringsAsFactors = F)
 
   countlessthanfour <- newLengths %>%
-    group_by(plot_id, plant_id) %>%
-    summarise(count = n_distinct(new_direction)) %>%
-    filter(count < 4)
+    dplyr::group_by(plot_id, plant_id) %>%
+    dplyr::summarise(count = n_distinct(new_direction)) %>%
+    dplyr::filter(count < 4)
 
   aframe <- data.frame(stringsAsFactors = F)
 
   for (i in 1:nrow(countlessthanfour)) {
 
-    plot <- countlessthanfour[i, ]$plot_id
+    plot  <- countlessthanfour[i, ]$plot_id
     plant <- countlessthanfour[i, ]$plant_id
 
     aframe <- bind_rows(
       aframe,
       newLengths %>%
-        filter(plot_id == plot, plant_id == plant) %>% 
-        right_join(dirSym, by = c("new_direction" = "dirSym")) %>%
-        mutate(plot_id = replace(plot_id, is.na(newLength), plot)) %>%
-        mutate(plant_id = replace(plant_id, is.na(newLength), plant))
+        dplyr::filter(plot_id == plot, plant_id == plant) %>%
+        dplyr::right_join(dirSym, by = c("new_direction" = "dirSym")) %>%
+        dplyr::mutate(plot_id = replace(plot_id, is.na(newLength), plot)) %>%
+        dplyr::mutate(plant_id = replace(plant_id, is.na(newLength), plant))
     )
 
   }
@@ -389,21 +385,22 @@ new_missing <- function(workflow = "XML") {
 
 }
 
+new_missing()
 
-# Where missing, add NULL value to stem length - use details from new_missing().
-# But note that new_missing() will not catch all, see error checking for
-# newLenghts above. to populate year, month, plot, plant, and direction. Do this
-# for each missing stem.
+# Where missing, add NULL value to stem length - use details from
+# new_missing(). But note that new_missing() will not catch all, see error
+# checking for newLenghts above to populate year, month, plot, plant, and
+# direction. Do this for each missing stem.
 dbExecute(pg, "
 INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
 (
   SELECT id, NULL, FALSE
   FROM urbancndep.stems
   WHERE
-    EXTRACT (YEAR FROM pre_date) = 2019 AND
-    EXTRACT (MONTH FROM pre_date) = 5 AND
-    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 35 AND code LIKE 'L2') AND
-    direction ILIKE 'w%'
+    EXTRACT (YEAR FROM pre_date) = 2021 AND
+    EXTRACT (MONTH FROM pre_date) = 10 AND
+    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 28 AND code LIKE 'L1') AND
+    direction ILIKE 'e%'
 );")
   
 # Where missing, add comment to stem comments - use details from new_missing()
@@ -415,9 +412,9 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
   SELECT id, FALSE, 'missing value'
   FROM urbancndep.stems
   WHERE
-    EXTRACT (YEAR FROM pre_date) = 2019 AND
-    EXTRACT (MONTH FROM pre_date) = 5 AND
-    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 35 AND code LIKE 'L2') AND
+    EXTRACT (YEAR FROM pre_date) = 2021 AND
+    EXTRACT (MONTH FROM pre_date) = 10 AND
+    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 28 AND code LIKE 'L1') AND
     direction ILIKE 'e%'
 );")
 
@@ -425,7 +422,9 @@ INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
 # post-entry error checking ----
 
 # using oldLengths and newLengths computed above, compare to what you put in PG;
-# do some comparison with raw tablet data
+# change YEAR_OF_INTEREST in the query as appropriate
+
+DBI::dbGetQuery(pg, "
 SELECT
   s.code AS site_code,
   p.id AS plot_id,
@@ -452,6 +451,7 @@ LEFT JOIN urbancndep.stem_comment sc ON (sc.stem_id = st.id AND sl.post_measurem
 WHERE
   EXTRACT (YEAR FROM st.pre_date) = YEAR_OF_INTEREST
 ORDER BY sl.post_measurement, p.id, st.pre_date, sh.code, st.direction;
+")
 
 
 # CLEAN UP ---------------------------------------------------------------------

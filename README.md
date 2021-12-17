@@ -28,3 +28,60 @@ Copy the contents of the ODK folder from each tablet into a folder with the corr
 **workflow: custom scripts**
 
 - Use `workflow_xml.R` and `populate_database.R` to extract and upload data.
+
+### the condition of missing plant data
+
+The fall 2021 collection presented a (seemingly) new problem in that there were
+data for three different L3 plants collected at site 21 with no way to
+distinguish the actual L3 and from L2, which was not collected. Separate but
+possibly related, all L2 data were missing from plot 29 - could be a connection
+between the 21 and 29 inconsistenties but they were collected on different days
+so very difficult to discern. Anyway, as a result, I had no choice but to
+remove all L3 data from plot 21. These data had to be filtered from the new,
+old, and plotsplants objects, but then readded to plotsplants in a systematic
+way. I also noted this in stem_comments.
+
+```r
+old <- dplyr::bind_rows(
+  old |> dplyr::filter(plot_id == 21 & plant_id != "L3"),
+  old |> dplyr::filter(plot_id != 21)
+)
+
+new <- dplyr::bind_rows(
+  new |> dplyr::filter(plot_id == 21 & plant_id != "L3"),
+  new |> dplyr::filter(plot_id != 21) #,
+)
+
+plotsplants <- dplyr::bind_rows(
+  plotsplants |> dplyr::filter(plot_id == 21 & plant_id != "L3"),
+  plotsplants |> dplyr::filter(plot_id != 21),
+  dplyr::inner_join(
+    tibble::tibble(
+      direction   = c("North", "South", "West", "East"),
+      dir         = c("N", "S", "W", "E"),
+      plot_id     = 21,
+      survey_date = "2021-10-11",
+      plant_note  = "missing field data"
+      ),
+    tibble::tibble(
+      plant_id    = c("L2", "L3"),
+      plot_id     = 21,
+      ),
+    by = c("plot_id")
+  ),
+  dplyr::inner_join(
+    tibble::tibble(
+      direction   = c("North", "South", "West", "East"),
+      dir         = c("N", "S", "W", "E"),
+      plot_id     = 29,
+      survey_date = "2021-10-13",
+      plant_note  = "missing field data"
+      ),
+    tibble::tibble(
+      plant_id    = c("L2"),
+      plot_id     = 29,
+      ),
+    by = c("plot_id")
+  )
+)
+```
