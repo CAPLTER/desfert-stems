@@ -4,11 +4,13 @@
 
 
 source("helper_load_table.R")
+source("helper_identify_new_missing.R")
+source("helper_annotate_new_missing.R")
 
 # temporary schema -------------------------------------------------------------
 
-dbExecute(pg, "DROP SCHEMA IF EXISTS stems_temp CASCADE ;")
-dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
+DBI::dbExecute(pg, "DROP SCHEMA IF EXISTS stems_temp CASCADE ;")
+DBI::dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
 
 
 # add raw data to temp postgres tables -----------------------------------------
@@ -40,6 +42,7 @@ DBI::dbExecute(
   "
 )
 
+
 # add stem_id generated from update of old stems to plots_plants (a later step)
 
 DBI::dbExecute(
@@ -55,6 +58,7 @@ DBI::dbExecute(
   "
 )
 
+
 # update existing pg.stems with this survey's post date & notes
 
 # Be certain to set month & year to the correct pre date, which should be the
@@ -66,45 +70,47 @@ DBI::dbExecute(
 # spanned multiple months, which is rare but has happened, you either need to
 # update the query or pass those values manually.
 
-recent_pre_date <- DBI::dbGetQuery(pg, "
-SELECT
-  DISTINCT EXTRACT(MONTH FROM pre_date) AS recentmos,
-  EXTRACT(YEAR FROM pre_date) AS recentyear
-FROM
-  urbancndep.stems
-WHERE
-  EXTRACT(YEAR FROM pre_date) = (SELECT MAX(EXTRACT(YEAR FROM pre_date)) FROM urbancndep.stems)
-;
-")
+recent_pre_date <- DBI::dbGetQuery(
+  conn      = pg,
+  statement = "
+  SELECT
+    DISTINCT EXTRACT(MONTH FROM pre_date) AS recentmos,
+    EXTRACT(YEAR FROM pre_date) AS recentyear
+  FROM
+    urbancndep.stems
+  WHERE
+    EXTRACT(YEAR FROM pre_date) = (SELECT MAX(EXTRACT(YEAR FROM pre_date)) FROM urbancndep.stems)
+  ;
+  "
+)
 
-baseUpdatePostQuery <- "
-UPDATE urbancndep.stems
-SET
-  post_date = plots_plants.survey_date,
-  post_note = plots_plants.post_note
-FROM stems_temp.plots_plants
-WHERE
-  plots_plants.shrub_id = urbancndep.stems.shrub_id AND
-  plots_plants.direction = urbancndep.stems.direction AND
-  EXTRACT(MONTH from urbancndep.stems.pre_date) IN (?preMonths) AND
-  EXTRACT(YEAR from urbancndep.stems.pre_date) = ?preYear
-;
-"
 
-# to address manually, change the last two lines of baseUpdatePostQuery to:
+pre_date_month <- max(recent_pre_date$recentmos)
+pre_date_year  <- max(recent_pre_date$recentyear)
+
+# to address manually, change the last two lines of update_post_query to:
 # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
 # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
 
-updatePostQuery <- DBI::sqlInterpolate(
-  DBI::ANSI(),
-  baseUpdatePostQuery,
-  preMonths = max(recent_pre_date$recentmos),
-  preYear   = max(recent_pre_date$recentyear)
-)
+update_post_query <- glue::glue_sql("
+  UPDATE urbancndep.stems
+  SET
+    post_date = plots_plants.survey_date,
+    post_note = plots_plants.post_note
+  FROM stems_temp.plots_plants
+  WHERE
+    plots_plants.shrub_id = urbancndep.stems.shrub_id AND
+    plots_plants.direction = urbancndep.stems.direction AND
+    EXTRACT(MONTH from urbancndep.stems.pre_date) IN ({ pre_date_month }) AND
+    EXTRACT(YEAR from urbancndep.stems.pre_date) = { pre_date_year }
+  ;
+  ",
+  .con = DBI::ANSI()
+  )
 
 DBI::dbExecute(
   conn      = pg,
-  statement = updatePostQuery
+  statement = update_post_query
 )
 
 
@@ -288,6 +294,7 @@ DBI::dbExecute(
   "
 )
 
+
 # insert any notes about the plants into the stems_comment table by setting
 # post_measuremnt to TRUE, the query assumes the comment was made upon old
 # collection (post visit) this is reasonable and it is hard to imagine a comment
@@ -315,6 +322,7 @@ DBI::dbExecute(
   "
 )
 
+
 # add plot notes (new as of 2018-10-22)
 
 DBI::dbExecute(
@@ -338,7 +346,11 @@ DBI::dbExecute(
 )
           
 
-# address missing NEW values ----------------------------------------------
+# address missing NULL values ---------------------------------------------
+
+# WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL
+# 2022 WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION
+# SO ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
 
 # identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
@@ -386,84 +398,20 @@ new_null <- function(workflow = "XML") {
 
 new_null()
 
-# Identify the details of any missing new stems using new_missing(). We need to
-# document cases where there are not any data for a particular direction of a
-# plant. Here we find the details of the missing plant using new_missing(). We
-# can then use these details to construct our update statements, two for
-# direction without a new measurment: one to document the NULL value for that
-# direction, and two to add a comment in the comments table. The next step would
-# be to generate the update statement based on new_missing() output instead of
-# manually constructing each update statement as done here.
 
-new_missing <- function() {
+# address missing NEW values ----------------------------------------------
 
-  newLengths <- new
+# identify and document missing new stems data
 
-  dirSym <- c("N", "S", "W", "E")
-  dirSym <- data.frame(dirSym, stringsAsFactors = F)
+# Identify the details of any missing new stems using
+# \code{identify_new_missing}. We need to document cases where there are not
+# any new-stem measurements for a particular plot*plant*direction. We can then
+# pass these details to \code{annotate_new_missing} to: (1) document the NULL
+# value for that direction, and (2) add a comment.
 
-  countlessthanfour <- newLengths |>
-    dplyr::group_by(plot_id, plant_id) |>
-    dplyr::summarise(count = dplyr::n_distinct(new_direction)) |>
-    dplyr::filter(count < 4)
+new_stems_missing <- identify_new_missing()
 
-  aframe <- data.frame(stringsAsFactors = F)
-
-  for (i in 1:nrow(countlessthanfour)) {
-
-    plot  <- countlessthanfour[i, ]$plot_id
-    plant <- countlessthanfour[i, ]$plant_id
-
-    aframe <- dplyr::bind_rows(
-      aframe,
-      newLengths |>
-        dplyr::filter(plot_id == plot, plant_id == plant) |>
-        dplyr::right_join(dirSym, by = c("new_direction" = "dirSym")) |>
-        dplyr::mutate(plot_id = replace(plot_id, is.na(new_length), plot)) |>
-        dplyr::mutate(plant_id = replace(plant_id, is.na(new_length), plant))
-    )
-
-  }
-
-  aframe <- aframe |>
-    dplyr::arrange(plot_id, plant_id, new_direction)
-
-  return(aframe)
-
-}
-
-new_missing()
-
-# Where missing, add NULL value to stem length - use details from
-# new_missing(). But note that new_missing() will not catch all, see error
-# checking for newLenghts above to populate year, month, plot, plant, and
-# direction. Do this for each missing stem.
-dbExecute(pg, "
-INSERT INTO urbancndep.stem_lengths(stem_id, length_in_mm, post_measurement)
-(
-  SELECT id, NULL, FALSE
-  FROM urbancndep.stems
-  WHERE
-    EXTRACT (YEAR FROM pre_date) = 2021 AND
-    EXTRACT (MONTH FROM pre_date) = 10 AND
-    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 28 AND code LIKE 'L1') AND
-    direction ILIKE 'e%'
-);")
-  
-# Where missing, add comment to stem comments - use details from new_missing()
-# to populate year, month, plot, plant, and direction. Do this for each missing
-# stem.
-dbExecute(pg, "
-INSERT INTO urbancndep.stem_comment(stem_id, post_measurement, comment)
-(
-  SELECT id, FALSE, 'missing value'
-  FROM urbancndep.stems
-  WHERE
-    EXTRACT (YEAR FROM pre_date) = 2021 AND
-    EXTRACT (MONTH FROM pre_date) = 10 AND
-    shrub_id IN (SELECT id FROM urbancndep.shrubs WHERE plot_id = 28 AND code LIKE 'L1') AND
-    direction ILIKE 'e%'
-);")
+purrr::pwalk(new_stems_missing, ~ annotate_new_missing(plot_id = ..4, plant_id = ..1, direction = ..2))
 
 
 # post-processing error checking -----------------------------------------------
@@ -522,7 +470,7 @@ DBI::dbExecute(
   conn      = pg,
   statement = "
   ALTER TABLE stems_temp.shrub_dimensions
-    ADD COLUMN shrub_id INTEGER
+  ADD COLUMN shrub_id INTEGER
   ;
   "
 )

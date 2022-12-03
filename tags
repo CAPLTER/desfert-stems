@@ -9,48 +9,66 @@
 "./helper_extract_old_stems_notes.R"	archive/workflow_xml/helper_extract_plots_plants.R	/^source(".\/helper_extract_old_stems_notes.R")$/;"	s
 "./helper_extract_plot_notes.R"	archive/workflow_xml/workflow_xml.R	/^source(".\/helper_extract_plot_notes.R")$/;"	s
 "./helper_extract_plots_plants.R"	archive/workflow_xml/workflow_xml.R	/^source(".\/helper_extract_plots_plants.R")$/;"	s
-"helper_complete_matrix.R"	kobo_workflow.R	/^source("helper_complete_matrix.R")$/;"	s
-"helper_load_table.R"	populate_database.R	/^source("helper_load_table.R")$/;"	s
-"helper_manage_post_notes.R"	kobo_workflow.R	/^source("helper_manage_post_notes.R")$/;"	s
-"helper_read_data.R"	kobo_workflow.R	/^source("helper_read_data.R")$/;"	s
-"helper_remove_ambiguous.R"	kobo_workflow.R	/^source("helper_remove_ambiguous.R")$/;"	s
+"direction"	kobo_workflow.R	/^    "direction"    = "direction"$/;"	n	vector:by
+"new_direction"	helper_identify_new_missing.R	/^    by = c("new_direction" = "direction")$/;"	n	vector:generate_matrix_new_null.by
+"new_direction"	helper_identify_new_null.R	/^    by = c("new_direction" = "direction")$/;"	n	vector:generate_matrix_new_null.by
+"parent_index"	kobo_workflow.R	/^    "parent_index"  = "plants_index"$/;"	n	vector:by
+"plants_index"	kobo_workflow.R	/^    "plants_index" = "index",$/;"	n	vector:by
+"submission_id"	kobo_workflow.R	/^    "submission_id" = "id",$/;"	n	vector:by
+"uuid"	kobo_workflow.R	/^  by = c("uuid" = "submission_uuid")$/;"	n	vector:by
+.con	helper_annotate_new_missing.R	/^  .con = DBI::ANSI()$/;"	v	function:annotate_new_missing
+.groups	helper_identify_new_missing.R	/^    .groups = "drop"$/;"	v	function:identify_new_missing
+.groups	helper_identify_new_null.R	/^    .groups = "drop"$/;"	v	function:identify_new_missing
+.x	kobo_workflow.R	/^post_note <- purrr::map_df(.x = directions_vector, ~ coalesce_old_notes(source_data = plants, ca/;"	g
 RPostgreSQL	archive/workflow_xml/helper_odk_error_checking.R	/^library(RPostgreSQL)$/;"	l
 active_plots_plants	helper_complete_matrix.R	/^active_plots_plants <- readr::read_csv("active_plots_plants.csv")$/;"	g
 aframe	archive/workflow_xml/helper_odk_error_checking.R	/^    aframe <- bind_rows(aframe, $/;"	v
 aframe	archive/workflow_xml/helper_odk_error_checking.R	/^  aframe <- aframe %>% $/;"	v
 aframe	archive/workflow_xml/helper_odk_error_checking.R	/^  aframe <- aframe %>%$/;"	v
 aframe	archive/workflow_xml/helper_odk_error_checking.R	/^  aframe <- data.frame(stringsAsFactors = F)$/;"	v
-aframe	populate_database.R	/^    aframe <- dplyr::bind_rows($/;"	v
-aframe	populate_database.R	/^  aframe <- aframe |>$/;"	v
-aframe	populate_database.R	/^  aframe <- data.frame(stringsAsFactors = F)$/;"	v
 all_combinations	helper_complete_matrix.R	/^  all_combinations <- dplyr::full_join($/;"	v
 alpha	archive/workflow_xml/workflow_xml.R	/^alpha <- list.files($/;"	g
+annotate_new_missing	helper_annotate_new_missing.R	/^annotate_new_missing <- function($/;"	f
 baseUpdatePostQuery	archive/workflow_xml/helper_odk_error_checking.R	/^baseUpdatePostQuery <- '$/;"	g
-baseUpdatePostQuery	populate_database.R	/^baseUpdatePostQuery <- "$/;"	g
+by	helper_identify_new_missing.R	/^    by = c("new_direction" = "direction")$/;"	c	function:generate_matrix_new_null
+by	helper_identify_new_null.R	/^    by = c("new_direction" = "direction")$/;"	c	function:generate_matrix_new_null
+by	kobo_workflow.R	/^  by = c("uuid" = "submission_uuid")$/;"	c
+by	kobo_workflow.R	/^  by = c($/;"	c
+cardinal_directions	helper_identify_new_missing.R	/^  cardinal_directions <- tibble::tibble(direction = c("N", "S", "W", "E"))$/;"	v	function:identify_new_missing
+cardinal_directions	helper_identify_new_null.R	/^  cardinal_directions <- tibble::tibble(direction = c("N", "S", "W", "E"))$/;"	v	function:identify_new_missing
 coalesce_old_notes	helper_manage_post_notes.R	/^coalesce_old_notes <- function(source_data, cardinal_direction) {$/;"	f
+comment_insert	helper_annotate_new_missing.R	/^  comment_insert <- DBI::dbExecute($/;"	v	function:annotate_new_missing
+comment_query	helper_annotate_new_missing.R	/^  comment_query <- glue::glue_sql("$/;"	v	function:annotate_new_missing
 complete_matrix	kobo_workflow.R	/^complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)$/;"	g
+conn	helper_annotate_new_missing.R	/^  DBI::dbBegin(conn = pg)$/;"	v	function:annotate_new_missing
+count	helper_identify_new_missing.R	/^    count   = dplyr::n_distinct(new_direction),$/;"	v	function:identify_new_missing
+count	helper_identify_new_null.R	/^    count   = dplyr::n_distinct(new_direction),$/;"	v	function:identify_new_missing
+count_less_than_four	helper_identify_new_missing.R	/^  count_less_than_four <- new_lengths_data |>$/;"	v	function:identify_new_missing
+count_less_than_four	helper_identify_new_null.R	/^  count_less_than_four <- new_lengths_data |>$/;"	v	function:identify_new_missing
 countlessthanfour	archive/workflow_xml/helper_odk_error_checking.R	/^  countlessthanfour <- newLengths %>%$/;"	v
-countlessthanfour	populate_database.R	/^  countlessthanfour <- newLengths |>$/;"	v
 data	archive/workflow_xml/helper_odk_error_checking.R	/^data <- list(new, old, plotsplants, plotnotes)$/;"	g
-data_tables	populate_database.R	/^data_tables <- c("new", "old", "plots_plants", "plot_notes", "shrub_dimensions")$/;"	g
 delta	archive/workflow_xml/workflow_xml.R	/^delta <- list.files($/;"	g
 desfert-stems	README.md	/^## desfert-stems$/;"	s
 dirSym	archive/workflow_xml/helper_odk_error_checking.R	/^  dirSym <- c('N', 'S', 'W', 'E')$/;"	v
 dirSym	archive/workflow_xml/helper_odk_error_checking.R	/^  dirSym <- data.frame(dirSym, stringsAsFactors = F)$/;"	v
-dirSym	populate_database.R	/^  dirSym <- c("N", "S", "W", "E")$/;"	v
-dirSym	populate_database.R	/^  dirSym <- data.frame(dirSym, stringsAsFactors = F)$/;"	v
 direction	archive/workflow_briefcase.R	/^direction <- c("North", "South", "West", "East")$/;"	g
 direction	archive/workflow_briefcase.R	/^direction <- data.frame(direction, stringsAsFactors = F)$/;"	g
 direction	archive/workflow_xml/helper_extract_plots_plants.R	/^direction <- data.frame($/;"	g
 direction	archive/workflow_xml/helper_odk_error_checking.R	/^direction <- c("North", "South", "West", "East")$/;"	g
 direction	archive/workflow_xml/helper_odk_error_checking.R	/^direction <- data.frame(direction, stringsAsFactors = F)$/;"	g
+direction	helper_identify_new_missing.R	/^  cardinal_directions <- tibble::tibble(direction = c("N", "S", "W", "E"))$/;"	c	function:identify_new_missing
+direction	helper_identify_new_null.R	/^  cardinal_directions <- tibble::tibble(direction = c("N", "S", "W", "E"))$/;"	c	function:identify_new_missing
+direction	helper_manage_post_notes.R	/^    dplyr::mutate(direction = cardinal_direction) |>$/;"	v	function:coalesce_old_notes
+direction	kobo_workflow.R	/^  direction = c("North", "South", "West", "East")$/;"	c
 directions_frame	kobo_workflow.R	/^directions_frame <- tibble::tibble($/;"	g
-directions_vector	kobo_workflow.R	/^directions_vector <- c("North", "South", "West", "East")$/;"	g
+directions_vector	kobo_workflow.R	/^directions_vector <- c("North", "South", "West", "East")$/;"	c
 dplyr	archive/workflow_xml/helper_extract_lengths.R	/^library(dplyr)$/;"	l
 dplyr	archive/workflow_xml/helper_extract_old_stems_notes.R	/^library(dplyr)$/;"	l
 dplyr	archive/workflow_xml/helper_extract_plot_notes.R	/^library(dplyr)$/;"	l
 dplyr	archive/workflow_xml/helper_extract_plots_plants.R	/^library(dplyr)$/;"	l
 dplyr	archive/workflow_xml/workflow_xml.R	/^library(dplyr)$/;"	l
+e_w	kobo_workflow.R	/^    e_w = dplyr::case_when($/;"	g
+e_w	kobo_workflow.R	/^    e_w = width_of_plant_at_widest_point_e_w,$/;"	g
 east_note	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  east_note <- old_stems_missing_nodeset[1] %>%$/;"	v
 extract_new_lengths	archive/workflow_xml/helper_extract_lengths.R	/^extract_new_lengths <- function(xml_file) {$/;"	f
 extract_old_lengths	archive/workflow_xml/helper_extract_lengths.R	/^extract_old_lengths <- function(xml_file) {$/;"	f
@@ -62,7 +80,18 @@ field	helper_read_data.R	/^  field <- stringr::str_trim(field, side = c("both"))
 format_note_field	helper_read_data.R	/^format_note_field <- function(field) {$/;"	f
 formatted_data	helper_read_data.R	/^  formatted_data <- readxl::read_excel($/;"	v
 generate_complete_matrix	helper_complete_matrix.R	/^generate_complete_matrix <- function($/;"	f
+generate_matrix_new_null	helper_identify_new_missing.R	/^generate_matrix_new_null <- function($/;"	f
+generate_matrix_new_null	helper_identify_new_null.R	/^generate_matrix_new_null <- function($/;"	f
+height_of_plant	kobo_workflow.R	/^    height_of_plant = dplyr::case_when($/;"	g
 helper_load_table	helper_load_table.R	/^helper_load_table <- function($/;"	f
+identify_new_missing	helper_identify_new_missing.R	/^identify_new_missing <- function($/;"	f
+identify_new_missing	helper_identify_new_null.R	/^identify_new_missing <- function($/;"	f
+lengths_insert	helper_annotate_new_missing.R	/^  lengths_insert <- DBI::dbExecute($/;"	v	function:annotate_new_missing
+lengths_query	helper_annotate_new_missing.R	/^  lengths_query <- glue::glue_sql("$/;"	v	function:annotate_new_missing
+missing_length_matrix	helper_identify_new_missing.R	/^  missing_length_matrix <- purrr::pmap_dfr($/;"	v	function:identify_new_missing
+missing_length_matrix	helper_identify_new_null.R	/^  missing_length_matrix <- purrr::pmap_dfr($/;"	v	function:identify_new_missing
+n_s	kobo_workflow.R	/^    n_s = dplyr::case_when($/;"	g
+n_s	kobo_workflow.R	/^    n_s = width_of_plant_at_widest_point_n_s,$/;"	g
 names(data)	archive/workflow_xml/helper_odk_error_checking.R	/^names(data) <- c("new", "old", "plotsplants", "plotnotes")$/;"	g
 new	archive/workflow_briefcase.R	/^new <- read_csv("cndep_stems-new_stems.csv")$/;"	g
 new	archive/workflow_xml/helper_odk_error_checking.R	/^new <- read_csv("cndep_stems-new_stems.csv")$/;"	g
@@ -71,18 +100,18 @@ new	kobo_workflow.R	/^new    <- read_kobo_stems(path_to_file = path, worksheet =
 new	kobo_workflow.R	/^new <- dplyr::left_join($/;"	g
 newLengths	archive/workflow_briefcase.R	/^newLengths <- inner_join(plots, plants, by = c("KEY" = "PARENT_KEY")) %>%$/;"	g
 newLengths	archive/workflow_xml/helper_odk_error_checking.R	/^newLengths <- inner_join(plots, plants, by = c("KEY" = "PARENT_KEY")) %>%$/;"	g
-newLengths	populate_database.R	/^  newLengths <- new$/;"	v
+new_direction	kobo_workflow.R	/^  new_direction = direction,$/;"	g
 new_lengths	archive/workflow_xml/helper_extract_lengths.R	/^  new_lengths <- tibble(nodeset = shrubs_list) %>%$/;"	v
 new_missing	archive/workflow_xml/helper_odk_error_checking.R	/^new_missing <- function() {$/;"	f
-new_missing	populate_database.R	/^new_missing <- function() {$/;"	f
 new_null	archive/workflow_xml/helper_odk_error_checking.R	/^new_null <- function() {$/;"	f
-new_null	populate_database.R	/^new_null <- function(workflow = "XML") {$/;"	f
 nodeset_missing	archive/workflow_xml/helper_extract_plots_plants.R	/^  nodeset_missing <- xml2::xml_find_all($/;"	v
 north_note	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  north_note <- old_stems_missing_nodeset[1] %>%$/;"	v
+note_about_plant	kobo_workflow.R	/^  note_about_plant = gsub(",", " ", note_about_plant),$/;"	g
+note_about_plant	kobo_workflow.R	/^  note_about_plant = gsub("[\\n\\r]", " ", note_about_plant),$/;"	g
+note_about_plant	kobo_workflow.R	/^  note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))$/;"	g
 notes	archive/workflow_xml/helper_extract_plot_notes.R	/^  notes <- tibble($/;"	v
-notes_tibble	helper_manage_post_notes.R	/^  notes_tibble <- source_data |>$/;"	v
+notes_tibble	helper_manage_post_notes.R	/^  notes_tibble <- source_data |>$/;"	v	function:coalesce_old_notes
 nullvalues	archive/workflow_xml/helper_odk_error_checking.R	/^  nullvalues <- newLengths %>%$/;"	v
-nullvalues	populate_database.R	/^  nullvalues <- newLengths |>$/;"	v
 old	archive/workflow_briefcase.R	/^old <- read_csv("cndep_stems-old_stems.csv")$/;"	g
 old	archive/workflow_xml/helper_odk_error_checking.R	/^old <- read_csv("cndep_stems-old_stems.csv")$/;"	g
 old	archive/workflow_xml/workflow_xml.R	/^old <- bind_rows($/;"	g
@@ -90,25 +119,29 @@ old	kobo_workflow.R	/^old    <- read_kobo_stems(path_to_file = path, worksheet =
 old	kobo_workflow.R	/^old <- dplyr::left_join($/;"	g
 oldLengths	archive/workflow_briefcase.R	/^oldLengths <- inner_join(plots, plants, by = c("KEY" = "PARENT_KEY")) %>%$/;"	g
 oldLengths	archive/workflow_xml/helper_odk_error_checking.R	/^oldLengths <- inner_join(plots, plants, by = c("KEY" = "PARENT_KEY")) %>%$/;"	g
+old_direction	kobo_workflow.R	/^  old_direction = direction,$/;"	g
 old_lengths	archive/workflow_xml/helper_extract_lengths.R	/^  old_lengths <- tibble(nodeset = shrubs_list) %>%$/;"	v
 old_stems_missing_notes	archive/workflow_xml/helper_extract_plots_plants.R	/^  old_stems_missing_notes <- tibble::tibble($/;"	v
 old_stems_missing_notes	archive/workflow_xml/helper_extract_plots_plants.R	/^old_stems_missing_notes <- map_df($/;"	g
-path	kobo_workflow.R	/^path <- "~\/Dropbox\/development\/desfert_stems_spring\/desfert_stems_-_all_versions_-_English_e/;"	g
+path	kobo_workflow.R	/^path <- "~\/Desktop\/desfert_stems_-_all_versions_-_English_en_-_2022-12-01-17-59-30.xlsx"$/;"	g
 plant	archive/workflow_xml/helper_odk_error_checking.R	/^    plant <- countlessthanfour[i,]$plant_id$/;"	v
 plant	archive/workflow_xml/helper_odk_error_checking.R	/^    plant <- nullvalues[i,]$plant_id$/;"	v
-plant	populate_database.R	/^    plant <- countlessthanfour[i, ]$plant_id$/;"	v
-plant	populate_database.R	/^    plant <- nullvalues[i, ]$plant_id$/;"	v
 plant_id	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  plant_id <- old_stems_missing_nodeset %>%$/;"	v
+plant_id	helper_identify_new_missing.R	/^    plant_id = replace(plant_id, is.na(new_length), new_null_plant)$/;"	v	function:generate_matrix_new_null
+plant_id	helper_identify_new_null.R	/^    plant_id = replace(plant_id, is.na(new_length), new_null_plant)$/;"	v	function:generate_matrix_new_null
 plant_old_missing	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  plant_old_missing <- tibble($/;"	v
 plants	archive/workflow_briefcase.R	/^plants <- plants %>%$/;"	g
 plants	archive/workflow_briefcase.R	/^plants <- read_csv("cndep_stems-shrub.csv")$/;"	g
 plants	archive/workflow_xml/helper_odk_error_checking.R	/^plants <- plants %>%$/;"	g
 plants	archive/workflow_xml/helper_odk_error_checking.R	/^plants <- read_csv("cndep_stems-shrub.csv")$/;"	g
 plants	kobo_workflow.R	/^plants <- read_kobo_stems(path_to_file = path, worksheet = "measurements_repeat")$/;"	g
+plants_index	kobo_workflow.R	/^  plants_index  = parent_index$/;"	g
+plants_index	kobo_workflow.R	/^  y  = plants |> dplyr::rename(plants_index = index),$/;"	g
 plot	archive/workflow_xml/helper_odk_error_checking.R	/^    plot <- countlessthanfour[i,]$plot_id$/;"	v
 plot	archive/workflow_xml/helper_odk_error_checking.R	/^    plot <- nullvalues[i,]$plot_id$/;"	v
-plot	populate_database.R	/^    plot  <- countlessthanfour[i, ]$plot_id$/;"	v
-plot	populate_database.R	/^    plot  <- nullvalues[i, ]$plot_id$/;"	v
+plot_id	helper_identify_new_missing.R	/^    plot_id  = replace(plot_id, is.na(new_length), new_null_plot),$/;"	v	function:generate_matrix_new_null
+plot_id	helper_identify_new_null.R	/^    plot_id  = replace(plot_id, is.na(new_length), new_null_plot),$/;"	v	function:generate_matrix_new_null
+plot_notes	kobo_workflow.R	/^    plot_notes  = note_about_plot$/;"	g
 plot_notes	kobo_workflow.R	/^plot_notes <- plots |>$/;"	g
 plot_plants	archive/workflow_xml/helper_extract_plots_plants.R	/^  plot_plants <- plot_plants %>%$/;"	v
 plot_plants	archive/workflow_xml/helper_extract_plots_plants.R	/^  plot_plants <- plot_plants |>$/;"	v
@@ -122,7 +155,7 @@ plots	archive/workflow_briefcase.R	/^plots <- read_csv("cndep_stems.csv")$/;"	g
 plots	archive/workflow_xml/helper_odk_error_checking.R	/^plots <- plots %>%$/;"	g
 plots	archive/workflow_xml/helper_odk_error_checking.R	/^plots <- read_csv("cndep_stems.csv")$/;"	g
 plots	kobo_workflow.R	/^plots  <- read_kobo_stems(path_to_file = path, worksheet = "desfert_stems")$/;"	g
-plots	kobo_workflow.R	/^plots <- plots |>$/;"	g
+plots_index	kobo_workflow.R	/^  x  = plots |> dplyr::rename(plots_index = index),$/;"	g
 plots_plants	kobo_workflow.R	/^plots_plants <- dplyr::left_join($/;"	g
 plots_plants	kobo_workflow.R	/^plots_plants <- plots_plants |>$/;"	g
 plotsplants	archive/spring_2019_customizations.R	/^plotsplants <- plotsplants %>% $/;"	g
@@ -133,30 +166,33 @@ plotsplants	archive/workflow_xml/helper_odk_error_checking.R	/^plotsplants <- in
 plotsplants	archive/workflow_xml/helper_odk_error_checking.R	/^plotsplants <- merge(plotsplants, direction, all=T)$/;"	g
 plotsplants	archive/workflow_xml/helper_odk_error_checking.R	/^plotsplants <- plotsplants %>% $/;"	g
 plotsplants	archive/workflow_xml/workflow_xml.R	/^plotsplants <- bind_rows($/;"	g
+post_note	helper_manage_post_notes.R	/^    dplyr::rename(post_note = this_direction)$/;"	v	function:coalesce_old_notes
 post_note	kobo_workflow.R	/^post_note <- purrr::map_df(.x = directions_vector, ~ coalesce_old_notes(source_data = plants, ca/;"	g
 purrr	archive/workflow_xml/helper_extract_lengths.R	/^library(purrr)$/;"	l
 purrr	archive/workflow_xml/helper_extract_old_stems_notes.R	/^library(purrr)$/;"	l
 purrr	archive/workflow_xml/helper_extract_plot_notes.R	/^library(purrr)$/;"	l
 purrr	archive/workflow_xml/helper_extract_plots_plants.R	/^library(purrr)$/;"	l
 purrr	archive/workflow_xml/workflow_xml.R	/^library(purrr)$/;"	l
-query_recent	populate_database.R	/^query_recent <- glue::glue_sql("$/;"	g
-query_recent_measurents	populate_database.R	/^query_recent_measurents <- glue::glue_sql("$/;"	g
 read_kobo_stems	helper_read_data.R	/^read_kobo_stems <- function(path_to_file, worksheet) {$/;"	f
 recentPreDate	archive/workflow_xml/helper_odk_error_checking.R	/^recentPreDate <- dbGetQuery(pg, '$/;"	g
-recent_data	populate_database.R	/^recent_data <- DBI::dbGetQuery($/;"	g
-recent_measurements	populate_database.R	/^recent_measurements <- DBI::dbGetQuery($/;"	g
-recent_pre_date	populate_database.R	/^recent_pre_date <- DBI::dbGetQuery(pg, "$/;"	g
 remove_ambiguous_plants	helper_remove_ambiguous.R	/^remove_ambiguous_plants <- function(plot, duplicated_plant, missing_plant, survey_date) {$/;"	f
 shrub_dimensions	kobo_workflow.R	/^shrub_dimensions <- plots_plants |>$/;"	g
 shrubs	archive/workflow_xml/helper_extract_lengths.R	/^  shrubs <- xml2::xml_find_all(xml_file, "shrub")$/;"	v
 shrubs	archive/workflow_xml/helper_extract_plots_plants.R	/^shrubs <- xml2::xml_find_all(xml_file, "shrub")$/;"	g
 shrubs_list	archive/workflow_xml/helper_extract_lengths.R	/^  shrubs_list <- shrubs %>%$/;"	v
 shrubs_list	archive/workflow_xml/helper_extract_plots_plants.R	/^shrubs_list <- shrubs %>%$/;"	g
+side	kobo_workflow.R	/^  note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))$/;"	c
 south_note	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  south_note <- old_stems_missing_nodeset[1] %>%$/;"	v
+statement	helper_annotate_new_missing.R	/^    statement = lengths_query$/;"	v	function:annotate_new_missing
 stringr	archive/workflow_briefcase.R	/^library(stringr)$/;"	l
 stringr	archive/workflow_xml/helper_odk_error_checking.R	/^library(stringr)$/;"	l
+survey_date	kobo_workflow.R	/^    survey_date = date,$/;"	g
+survey_date	kobo_workflow.R	/^  survey_date = as.Date(survey_date),$/;"	g
+survey_date	kobo_workflow.R	/^  survey_date = dplyr::case_when($/;"	g
+survey_date	kobo_workflow.R	/^  survey_date = today,$/;"	g
 tablet_file	archive/workflow_xml/workflow_xml.R	/^tablet_file <- read_xml(".xml")$/;"	g
-this_direction	helper_manage_post_notes.R	/^  this_direction <- tolower({{ cardinal_direction }})$/;"	v
+this_direction	helper_annotate_new_missing.R	/^  this_direction <- paste0(direction, "%")$/;"	v	function:annotate_new_missing
+this_direction	helper_manage_post_notes.R	/^  this_direction <- tolower({{ cardinal_direction }})$/;"	v	function:coalesce_old_notes
 tibble	archive/workflow_xml/helper_extract_lengths.R	/^library(tibble)$/;"	l
 tibble	archive/workflow_xml/helper_extract_old_stems_notes.R	/^library(tibble)$/;"	l
 tibble	archive/workflow_xml/helper_extract_plot_notes.R	/^library(tibble)$/;"	l
@@ -170,8 +206,10 @@ tidyr	archive/workflow_xml/workflow_xml.R	/^library(tidyr)$/;"	l
 tidyverse	archive/workflow_briefcase.R	/^library(tidyverse)$/;"	l
 tidyverse	archive/workflow_xml/helper_odk_error_checking.R	/^library(tidyverse)$/;"	l
 updatePostQuery	archive/workflow_xml/helper_odk_error_checking.R	/^updatePostQuery <- sqlInterpolate(ANSI(),$/;"	g
-updatePostQuery	populate_database.R	/^updatePostQuery <- DBI::sqlInterpolate($/;"	g
 west_note	archive/workflow_xml/helper_extract_old_stems_notes.R	/^  west_note <- old_stems_missing_nodeset[1] %>%$/;"	v
+x	kobo_workflow.R	/^  x  = new,$/;"	g
+x	kobo_workflow.R	/^  x  = old,$/;"	g
+x	kobo_workflow.R	/^  x  = plots |> dplyr::rename(plots_index = index),$/;"	g
 xml2	archive/workflow_xml/helper_extract_lengths.R	/^library(xml2)$/;"	l
 xml2	archive/workflow_xml/helper_extract_old_stems_notes.R	/^library(xml2)$/;"	l
 xml2	archive/workflow_xml/helper_extract_plot_notes.R	/^library(xml2)$/;"	l
@@ -180,4 +218,5 @@ xml2	archive/workflow_xml/workflow_xml.R	/^library(xml2)$/;"	l
 xml_file	archive/workflow_xml/helper_extract_lengths.R	/^  xml_file <- xml2::read_xml(xml_file)$/;"	v
 xml_file	archive/workflow_xml/helper_extract_plot_notes.R	/^  xml_file <- xml2::read_xml(xml_file)$/;"	v
 xml_file	archive/workflow_xml/helper_extract_plots_plants.R	/^  xml_file <- xml2::read_xml(xml_file)$/;"	v
-years	populate_database.R	/^years <- c($/;"	g
+y	kobo_workflow.R	/^  y  = plants |> dplyr::rename(plants_index = index),$/;"	g
+y	kobo_workflow.R	/^  y  = plots_plants,$/;"	g

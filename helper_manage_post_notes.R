@@ -22,8 +22,11 @@ coalesce_old_notes <- function(source_data, cardinal_direction) {
     dplyr::select(
       index,
       direction,
-      post_note = this_direction
+      tidyselect::all_of(this_direction)
     )
+
+    notes_tibble <- notes_tibble |>
+    dplyr::rename(post_note = this_direction)
 
   return(notes_tibble)
 
