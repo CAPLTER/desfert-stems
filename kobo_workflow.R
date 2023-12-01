@@ -45,23 +45,23 @@ plots_plants <- dplyr::left_join(
   x  = plots |> dplyr::rename(plots_index = index),
   y  = plants |> dplyr::rename(plants_index = index),
   by = c("uuid" = "submission_uuid")
+) |>
+  dplyr::mutate(
+    note_about_plant = gsub(",", " ", note_about_plant),
+    note_about_plant = gsub("[\n\r]", " ", note_about_plant),
+    note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))
   ) |>
-dplyr::mutate(
-  note_about_plant = gsub(",", " ", note_about_plant),
-  note_about_plant = gsub("[\n\r]", " ", note_about_plant),
-  note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))
-  ) |>
-dplyr::select(
-  survey_date = today,
-  plot_id,
-  id,
-  uuid,
-  plant_id,
-  note_about_plant,
-  plots_index,
-  plants_index,
-  dplyr::contains(c("width", "height"))
-)
+  dplyr::select(
+    survey_date = today,
+    plot_id,
+    id,
+    uuid,
+    plant_id,
+    note_about_plant,
+    plots_index,
+    plants_index,
+    dplyr::contains(c("width", "height"))
+  )
 
 plots_plants |>
   dplyr::count(plot_id, plant_id) |>
@@ -77,21 +77,44 @@ plots_plants |>
 complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 
 
-## fix plot-level errors (if needed)
+# fix plot-level errors (if needed)
 
-# example, here fixing data for a plot so we need to go back and recreate
+# Example, here fixing data for a plot so we need to go back and recreate
 # plots_plants after running this; this error was identifed from the
-# complete_matrix
+# complete_matrix.
 
 # plots <- plots |>
 #   dplyr::mutate(
-#     plod_id = dplyr::case_when(
-#       id == 156932467 ~ 34,
-#       TRUE ~ plod_id
+#     plot_id = dplyr::case_when(
+#       uuid == "0a467ea9-c373-4803-8316-cbe01d62e020" ~ 5,
+#       TRUE ~ plot_id
 #     )
 #   )
 
-# rebuild plots_plants after running above fix
+# Generally, we will want to make a note about any data edits, particularly if
+# there is any uncertainty or subjectivity to them. In most cases, the note,
+# even if at the plot level, should be addressed at the plant level so that the
+# information is starkly visible to a user assessing length data. Continuing
+# with the above example, where we are altering the identity of a plot (1 to 5
+# in this case), we need to associate the change to all plots in the numbers 1
+# and 5 plots.
+
+# plots_1_5 <- c(
+#   "0a467ea9-c373-4803-8316-cbe01d62e020",
+#   "8dbdc0e1-600d-43a7-9f78-ffb20d581834",
+#   "8fa78a97-438c-4232-965c-4a59d854ef79",
+#   "1319abfc-daca-4907-8a01-b6b016400e2a"
+# )
+
+# plants <- plants |>
+#   dplyr::mutate(
+#     note_about_plant = dplyr::case_when(
+#       submission_uuid %in% plots_1_5 ~ "plot id was miscoded; ID assigned reflects a best guess",
+#       TRUE ~ note_about_plant
+#     )
+#   )
+
+# rebuild PLOTS_PLANTS after running above fix !!
 
 
 # STEP 4: apply appropriate formatting and metadata to new and old stem lengths
@@ -103,14 +126,14 @@ old <- dplyr::left_join(
     "submission_id" = "id",
     "parent_index"  = "plants_index"
   )
-  ) |>
-dplyr::select(
-  plant_id,
-  old_direction = direction,
-  old_length,
-  plot_id,
-  plants_index  = parent_index
-)
+) |>
+  dplyr::select(
+    plant_id,
+    old_direction = direction,
+    old_length,
+    plot_id,
+    plants_index  = parent_index
+  )
 
 
 new <- dplyr::left_join(
@@ -120,14 +143,14 @@ new <- dplyr::left_join(
     "submission_id" = "id",
     "parent_index"  = "plants_index"
   )
-  ) |>
-dplyr::select(
-  plant_id,
-  new_direction = direction,
-  new_length,
-  plot_id,
-  plants_index  = parent_index
-)
+) |>
+  dplyr::select(
+    plant_id,
+    new_direction = direction,
+    new_length,
+    plot_id,
+    plants_index  = parent_index
+  )
 
 
 # STEP 5: fix errors: new, old, and plots_plants (if necessary)
@@ -136,8 +159,12 @@ dplyr::select(
 # remove_ambiguous_plants description for function details; these in addition
 # to the plot-level error and fix addressed at STEP 3
 
-# remove_ambiguous_plants(31, "L2", "L3", "2022-05-13")
-remove_ambiguous_plants(75, "L3", "L4", "2022-10-14")
+remove_ambiguous_plants(
+  plot             = 75,
+  duplicated_plant = "L3",
+  missing_plant    = "L4",
+  survey_date      = "2022-10-14"
+)
 
 
 # STEP 6: shrub dimensions
@@ -153,16 +180,16 @@ shrub_dimensions <- plots_plants |>
   dplyr::rename(
     n_s = width_of_plant_at_widest_point_n_s,
     e_w = width_of_plant_at_widest_point_e_w,
-    ) |>
+  ) |>
   dplyr::mutate(
     n_s = dplyr::case_when(
       n_s > 50 ~ n_s / 100,
       TRUE ~ n_s
-      ),
+    ),
     e_w = dplyr::case_when(
       e_w > 50 ~ e_w / 100,
       TRUE ~ e_w
-      ),
+    ),
     height_of_plant = dplyr::case_when(
       height_of_plant > 50 ~ height_of_plant / 100,
       TRUE ~ height_of_plant
@@ -179,28 +206,28 @@ directions_frame <- tibble::tibble(
 )
 
 plots_plants <- plots_plants |>
-merge(directions_frame, all = TRUE) |>
-dplyr::mutate(
-  survey_date = as.Date(survey_date),
-  survey_date = dplyr::case_when(
-    is.na(survey_date) & !is.na(today) ~ today,
-    TRUE ~ survey_date
+  merge(directions_frame, all = TRUE) |>
+  dplyr::mutate(
+    survey_date = as.Date(survey_date),
+    survey_date = dplyr::case_when(
+      is.na(survey_date) & !is.na(today) ~ today,
+      TRUE ~ survey_date
+    )
+  ) |>
+  dplyr::select(
+    survey_date,
+    plot_id,
+    id,
+    uuid,
+    plant_id,
+    note_about_plant,
+    plots_index,
+    plants_index,
+    direction
+  ) |>
+  assertr::assert(
+    assertr::not_na, c(survey_date, plant_id, direction)
   )
-  ) |>
-dplyr::select(
-  survey_date,
-  plot_id,
-  id,
-  uuid,
-  plant_id,
-  note_about_plant,
-  plots_index,
-  plants_index,
-  direction
-  ) |>
-assertr::assert(
-  assertr::not_na, c(survey_date, plant_id, direction)
-)
 
 
 # STEP 8: add old notes
@@ -210,13 +237,13 @@ directions_vector <- c("North", "South", "West", "East")
 post_note <- purrr::map_df(.x = directions_vector, ~ coalesce_old_notes(source_data = plants, cardinal_direction = .x))
 
 plots_plants <- plots_plants |>
-dplyr::left_join(
-  post_note,
-  by = c(
-    "plants_index" = "index",
-    "direction"    = "direction"
+  dplyr::left_join(
+    post_note,
+    by = c(
+      "plants_index" = "index",
+      "direction"    = "direction"
+    )
   )
-)
 
 
 # STEP 9: harvest plot-level notes

@@ -106,7 +106,7 @@ update_post_query <- glue::glue_sql("
   ;
   ",
   .con = DBI::ANSI()
-  )
+)
 
 DBI::dbExecute(
   conn      = pg,
@@ -351,6 +351,7 @@ DBI::dbExecute(
 # WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL
 # 2022 WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION
 # SO ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
+# Still the case through the 2023 data.
 
 # identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
