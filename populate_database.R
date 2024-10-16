@@ -2,7 +2,6 @@
 
 # Workflow to upload DesFert stem-length data to the urbancndep database.
 
-
 source("helper_load_table.R")
 source("helper_identify_new_missing.R")
 source("helper_annotate_new_missing.R")
@@ -90,7 +89,7 @@ pre_date_year  <- max(recent_pre_date$recentyear)
 
 # to address manually, change the last two lines of update_post_query to:
 # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-# EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriatly !
+# EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
 
 update_post_query <- glue::glue_sql("
   UPDATE urbancndep.stems
@@ -296,7 +295,7 @@ DBI::dbExecute(
 
 
 # insert any notes about the plants into the stems_comment table by setting
-# post_measuremnt to TRUE, the query assumes the comment was made upon old
+# post_measurement to TRUE, the query assumes the comment was made upon old
 # collection (post visit) this is reasonable and it is hard to imagine a comment
 # corresponding to the new collection, though dead or new plant might be an
 # example. Just be cognizant of this and edit as required.
@@ -351,9 +350,10 @@ DBI::dbExecute(
 # WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL
 # 2022 WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION
 # SO ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
-# Still the case through the 2023 data.
+# - still the case through the 2023 data.
+# - still the case through the 2024 (spring) data.
 
-# identify the details of any NULL value new stems using new_null(). The trick
+# Identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
 # null value and no other values. If that is the case, you may have to treat
 # that stem like a missing new value. However, if there are two new values for a
@@ -362,39 +362,44 @@ DBI::dbExecute(
 # May 2017, there was a NULL value at WTM-71-L1-E but there was another
 # measurement for E so we could simple ignore that NULL value
 
-new_null <- function(workflow = "XML") {
+new_null <- function() {
 
   newLengths <- new
 
   dirSym <- c("N", "S", "W", "E")
-  dirSym <- data.frame(dirSym, stringsAsFactors = F)
+  dirSym <- data.frame(dirSym, stringsAsFactors = FALSE)
 
   nullvalues <- newLengths |>
     dplyr::filter(is.na(new_length))
 
-  aframe <- data.frame(stringsAsFactors = F)
+  if (nrow(nullvalues) > 0) {
 
-  for (i in 1:nrow(nullvalues)) {
+    aframe <- data.frame(stringsAsFactors = FALSE)
 
-    plot  <- nullvalues[i, ]$plot_id
-    plant <- nullvalues[i, ]$plant_id
+    for (i in 1:nrow(nullvalues)) {
+      plot <- nullvalues[i, ]$plot_id
+      plant <- nullvalues[i, ]$plant_id
 
-    aframe <- dplyr::bind_rows(
-      aframe,
-      newLengths |>
-        dplyr::filter(plot_id == plot, plant_id == plant) |>
-        dplyr::right_join(dirSym, by = c("new_direction" = "dirSym")) |>
-        dplyr::mutate(plot_id = replace(plot_id, is.na(new_length), plot)) |>
-        dplyr::mutate(plant_id = replace(plant_id, is.na(new_length), plant))
-    )
+      aframe <- dplyr::bind_rows(
+        aframe,
+        newLengths |>
+          dplyr::filter(plot_id == plot, plant_id == plant) |>
+          dplyr::right_join(dirSym, by = c("new_direction" = "dirSym")) |>
+          dplyr::mutate(plot_id = replace(plot_id, is.na(new_length), plot)) |>
+          dplyr::mutate(plant_id = replace(plant_id, is.na(new_length), plant))
+      )
+    }
+
+    output <- aframe |>
+      dplyr::arrange(plot_id, plant_id, new_direction)
+
+  } else {
+
+    output <- NULL
 
   }
 
-  aframe <- aframe |>
-    dplyr::arrange(plot_id, plant_id, new_direction)
-
-  return(aframe)
-
+  return(output)
 }
 
 new_null()
@@ -405,10 +410,10 @@ new_null()
 # identify and document missing new stems data
 
 # Identify the details of any missing new stems using
-# \code{identify_new_missing}. We need to document cases where there are not
-# any new-stem measurements for a particular plot*plant*direction. We can then
-# pass these details to \code{annotate_new_missing} to: (1) document the NULL
-# value for that direction, and (2) add a comment.
+# \code{identify_new_missing}. We need to document cases where there are not any
+# new-stem measurements for a particular plot*plant*direction. We can then pass
+# these details to \code{annotate_new_missing} to: (1) document the NULL value
+# for that direction, and (2) add a comment.
 
 new_stems_missing <- identify_new_missing()
 
@@ -522,7 +527,7 @@ DBI::dbExecute(
 
 # check shrub dimensions data
 
-query_recent_measurents <- glue::glue_sql("
+query_recent_measurements <- glue::glue_sql("
   SELECT
     sites.code AS site_code,
     plots.id AS plot_id,
@@ -546,7 +551,7 @@ query_recent_measurents <- glue::glue_sql("
 
 recent_measurements <- DBI::dbGetQuery(
   conn      = pg,
-  statement = query_recent_measurents
+  statement = query_recent_measurements
 )
 
 # CLEAN UP ---------------------------------------------------------------------

@@ -1,42 +1,50 @@
 #' @title helper: identify stems for which new values are missing
 #'
-#' @description Failing to collect and/or misidentifying a plant or stem
-#' direction such that a plot*plant*direction ends up not having a new (i.e.,
-#' pre-date) measurement is an all too common occurence. These data are
-#' generally not recoverable but it is important to note in the database that
-#' the data were not collected. \code{identify_new_missing} is a function to
-#' identify occurences where new stem measurements are not available. This
-#' information can be used in a follow-up step (\code{annotate_new_missing}) to
-#' add the appropriate documentation regarding the missing new stem
-#' measurement(s) to the database for that particular collection.
+#' @description Failing to collect and/or misidentifying a plant or stem '
+#direction such that a plot*plant*direction ends up not having a new (i.e., '
+#pre-date) measurement is an all too common occurrence. These data are '
+#generally not recoverable but it is important to note in the database that '
+#the data were not collected. \code{identify_new_missing} is a function to '
+#identify occurrences where new stem measurements are not available. This '
+#information can be used in a follow-up step (\code{annotate_new_missing}) to '
+#add the appropriate documentation regarding the missing new stem '
+#measurement(s) to the database for that particular collection.
 #'
 #' @export
 #'
 identify_new_missing <- function(
-  new_lengths_data = new
-  ) {
+    new_lengths_data = new
+    ) {
 
   cardinal_directions <- tibble::tibble(direction = c("N", "S", "W", "E"))
 
   count_less_than_four <- new_lengths_data |>
-  dplyr::group_by(
-    plot_id,
-    plant_id
+    dplyr::group_by(
+      plot_id,
+      plant_id
     ) |>
-  dplyr::summarise(
-    count   = dplyr::n_distinct(new_direction),
-    .groups = "drop"
+    dplyr::summarise(
+      count   = dplyr::n_distinct(new_direction),
+      .groups = "drop"
     ) |>
-  dplyr::filter(count < 4) |>
-  dplyr::ungroup()
+    dplyr::filter(count < 4) |>
+    dplyr::ungroup()
 
-  missing_length_matrix <- purrr::pmap_dfr(
-    count_less_than_four,
-    ~ generate_matrix_new_null(..1, ..2, lengths_data = new_lengths_data, NSWE = cardinal_directions)
-  )
+  if (nrow(count_less_than_four) > 0) {
 
-  missing_length_matrix <- missing_length_matrix |>
-  dplyr::filter(is.na(new_length))
+    missing_length_matrix <- purrr::pmap_dfr(
+      count_less_than_four,
+      ~ generate_matrix_new_null(..1, ..2, lengths_data = new_lengths_data, NSWE = cardinal_directions)
+    )
+
+    missing_length_matrix <- missing_length_matrix |>
+      dplyr::filter(is.na(new_length))
+
+  } else {
+
+    missing_length_matrix <- NULL
+
+  }
 
   return(missing_length_matrix)
 

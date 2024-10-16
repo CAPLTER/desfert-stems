@@ -6,7 +6,7 @@
 # logging data are accessed separately.
 
 # Data-processing steps should be run sequentially (generally, anyway, as some
-# error-fixing steps may not be requied). Once extracted and formatted
+# error-fixing steps may not be required). Once extracted and formatted
 # according to this workflow, follow the populate_database workflow to add the
 # data to the urbancndep database.
 
@@ -28,7 +28,7 @@ source("helper_manage_post_notes.R")
 
 # path to KoBo download
 
-path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2022-12-01-17-59-30.xlsx"
+path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2024-10-16-19-25-51.xlsx"
 
 
 # STEP 1: read data from KoBo download
@@ -80,7 +80,7 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 # fix plot-level errors (if needed)
 
 # Example, here fixing data for a plot so we need to go back and recreate
-# plots_plants after running this; this error was identifed from the
+# plots_plants after running this; this error was identified from the
 # complete_matrix.
 
 # plots <- plots |>
@@ -135,7 +135,6 @@ old <- dplyr::left_join(
     plants_index  = parent_index
   )
 
-
 new <- dplyr::left_join(
   x  = new,
   y  = plots_plants,
@@ -159,19 +158,19 @@ new <- dplyr::left_join(
 # remove_ambiguous_plants description for function details; these in addition
 # to the plot-level error and fix addressed at STEP 3
 
-remove_ambiguous_plants(
-  plot             = 75,
-  duplicated_plant = "L3",
-  missing_plant    = "L4",
-  survey_date      = "2022-10-14"
-)
+# remove_ambiguous_plants(
+#   plot             = 75,
+#   duplicated_plant = "L3",
+#   missing_plant    = "L4",
+#   survey_date      = "2022-10-14"
+# )
 
 
 # STEP 6: shrub dimensions
 
 # isolate shrub dimension data before adding cardinal directions in the next step
 
-# the spring 2022 (inagural) collection interspersed measurements in units of
+# the spring 2022 (inaugural) collection interspersed measurements in units of
 # cm and m; those are standardized in this workflow but the app will be updated
 # to prevent this in the future so this should not be needed doing forward
 
@@ -208,11 +207,11 @@ directions_frame <- tibble::tibble(
 plots_plants <- plots_plants |>
   merge(directions_frame, all = TRUE) |>
   dplyr::mutate(
-    survey_date = as.Date(survey_date),
-    survey_date = dplyr::case_when(
-      is.na(survey_date) & !is.na(today) ~ today,
-      TRUE ~ survey_date
-    )
+    survey_date = as.Date(survey_date)
+    # survey_date = dplyr::case_when(
+    #   is.na(survey_date) & !is.na(today) ~ today,
+    #   TRUE ~ survey_date
+    # )
   ) |>
   dplyr::select(
     survey_date,
