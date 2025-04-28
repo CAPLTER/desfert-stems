@@ -28,7 +28,7 @@ source("helper_manage_post_notes.R")
 
 # path to KoBo download
 
-path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2024-10-16-19-25-51.xlsx"
+path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2025-04-28-19-01-10.xlsx"
 
 
 # STEP 1: read data from KoBo download
@@ -63,19 +63,20 @@ plots_plants <- dplyr::left_join(
     dplyr::contains(c("width", "height"))
   )
 
+
+# STEP 3: error checking
+
+# all plot * plants should be 1
+
 plots_plants |>
   dplyr::count(plot_id, plant_id) |>
   dplyr::filter(n > 1)
-
-
-# STEP 3: error checking
 
 # evaluate a matrix that encompasses all combinations of plots and plants that
 # should be measured versus those that were actually measured to identify
 # potential errors
 
 complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
-
 
 # fix plot-level errors (if needed)
 
@@ -115,6 +116,19 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #   )
 
 # rebuild PLOTS_PLANTS after running above fix !!
+
+plots_plants <- plots_plants |>
+  dplyr::mutate(
+    width_of_plant_at_widest_point_e_w = dplyr::case_when(
+      id == 400565687 & plant_id == "L1" ~ 2.16,
+      TRUE ~ width_of_plant_at_widest_point_e_w
+    ),
+    note_about_plant = dplyr::case_when(
+      id == 400565687 & plant_id == "L1" ~
+        "width_of_plant_at_widest_point_e_w was miscoded; value reflects a likely measurement based on field notes",
+      TRUE ~ note_about_plant
+    )
+  )
 
 
 # STEP 4: apply appropriate formatting and metadata to new and old stem lengths
@@ -158,12 +172,12 @@ new <- dplyr::left_join(
 # remove_ambiguous_plants description for function details; these in addition
 # to the plot-level error and fix addressed at STEP 3
 
-# remove_ambiguous_plants(
-#   plot             = 75,
-#   duplicated_plant = "L3",
-#   missing_plant    = "L4",
-#   survey_date      = "2022-10-14"
-# )
+remove_ambiguous_plants(
+  plot             = 64,
+  duplicated_plant = "L2",
+  missing_plant    = "L3",
+  survey_date      = "2024-10-22"
+)
 
 
 # STEP 6: shrub dimensions
