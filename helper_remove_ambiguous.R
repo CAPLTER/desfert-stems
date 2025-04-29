@@ -32,7 +32,12 @@
 #'
 #' @export
 #'
-remove_ambiguous_plants <- function(plot, duplicated_plant, missing_plant, survey_date) {
+remove_ambiguous_plants <- function(
+  plot,
+  duplicated_plant,
+  missing_plant,
+  survey_date
+) {
 
   tryCatch({
 
@@ -52,26 +57,27 @@ remove_ambiguous_plants <- function(plot, duplicated_plant, missing_plant, surve
       dplyr::inner_join(
         tibble::tibble(
           plot_id          = plot,
-          today            = as.Date(survey_date),
+          # today            = as.Date(survey_date),
+          survey_date      = as.Date(survey_date),
           note_about_plant = "missing field data"
-          ),
+        ),
         tibble::tibble(
           plant_id    = c(duplicated_plant, missing_plant),
           plot_id     = plot,
-          ),
+        ),
         by = c("plot_id")
       )
     )
   },
-  error = function(cond) {
-    message(cond)
-  },
-  warning = function(cond) {
-    message(cond)
-  },
-  finally = { 
-    message("edited")
-  }
+    error = function(cond) {
+      message(cond)
+    },
+    warning = function(cond) {
+      message(cond)
+    },
+    finally = { 
+      message("edited")
+    }
   )   
 
 }

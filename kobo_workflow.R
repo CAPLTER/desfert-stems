@@ -82,7 +82,7 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 
 # Example, here fixing data for a plot so we need to go back and recreate
 # plots_plants after running this; this error was identified from the
-# complete_matrix.
+# complete_matrix:
 
 # plots <- plots |>
 #   dplyr::mutate(
@@ -115,7 +115,10 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #     )
 #   )
 
-# rebuild PLOTS_PLANTS after running above fix !!
+# It is important to rebuild plots_plants when addressing fixes like the above
+# that affect the components that are used to build plots_plants.
+
+# Example, here it seems that the E-W dimension of a shrub was entered into the notes field:
 
 plots_plants <- plots_plants |>
   dplyr::mutate(

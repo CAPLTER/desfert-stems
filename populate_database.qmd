@@ -1,22 +1,38 @@
-# README -----------------------------------------------------------------------
+## README
 
 # Workflow to upload DesFert stem-length data to the urbancndep database.
+
+```{r}
+#| eval: true
 
 source("helper_load_table.R")
 source("helper_identify_new_missing.R")
 source("helper_annotate_new_missing.R")
+source("helper_safe_transaction.R")
+```
 
 # temporary schema -------------------------------------------------------------
 
+```{r}
+#| eval: true
+
 DBI::dbExecute(pg, "DROP SCHEMA IF EXISTS stems_temp CASCADE ;")
 DBI::dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
+```
 
 
 # add raw data to temp postgres tables -----------------------------------------
 
+```{r}
+#| eval: true
+
 data_tables <- c("new", "old", "plots_plants", "plot_notes", "shrub_dimensions")
 
-purrr::walk(.x = data_tables, ~ helper_load_table(table_name = .x))
+purrr::walk(
+  .x = data_tables,
+  .f = ~ helper_load_table(table_name = .x)
+)
+```
 
 
 # data manipulation (SQL) -----------------------------------------------------
@@ -29,6 +45,9 @@ purrr::walk(.x = data_tables, ~ helper_load_table(table_name = .x))
 # - prep for and add shrub_ids to the plots_plants tablet-derived data
 # - prep for and add stem_id generated from insert of new stems to plots_plants (a later step)
 
+```{r}
+#| eval: true
+
 DBI::dbExecute(
   conn      = pg,
   statement = "
@@ -40,13 +59,15 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
 
 # add stem_id generated from update of old stems to plots_plants (a later step)
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+```{r}
+#| eval: true
+
+update_plots_plants <- "
   UPDATE stems_temp.plots_plants
   SET shrub_id = urbancndep.shrubs.id
   FROM urbancndep.shrubs
@@ -55,7 +76,12 @@ DBI::dbExecute(
     urbancndep.shrubs.code = plots_plants.plant_id
   ;
   "
+
+safe_transaction(
+  action     = update_plots_plants,
+  ref_object = plots_plants
 )
+```
 
 
 # update existing pg.stems with this survey's post date & notes
@@ -68,6 +94,9 @@ DBI::dbExecute(
 # stems were measured in a single month (e.g., 5 or 10). If stem surveys
 # spanned multiple months, which is rare but has happened, you either need to
 # update the query or pass those values manually.
+
+```{r}
+#| eval: true
 
 recent_pre_date <- DBI::dbGetQuery(
   conn      = pg,
@@ -83,13 +112,16 @@ recent_pre_date <- DBI::dbGetQuery(
   "
 )
 
-
 pre_date_month <- max(recent_pre_date$recentmos)
 pre_date_year  <- max(recent_pre_date$recentyear)
+```
 
 # to address manually, change the last two lines of update_post_query to:
 # EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
 # EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
+
+```{r}
+#| eval: true
 
 update_post_query <- glue::glue_sql("
   UPDATE urbancndep.stems
@@ -107,17 +139,23 @@ update_post_query <- glue::glue_sql("
   .con = DBI::ANSI()
 )
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = update_post_query
-)
-
+DBI::dbWithTransaction(
+  con = pg,
+  {
+    DBI::dbExecute(
+      conn      = pg,
+      statement = update_post_query
+    )
+  }
+) # should be n = nrow(plots_plants)
+```
 
 # insert pre data into pg.stems
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+```{r}
+#| eval: true
+
+insert_pre <- "
   INSERT INTO urbancndep.stems
   (
     shrub_id,
@@ -125,22 +163,42 @@ DBI::dbExecute(
     pre_date
   )
   (
-    SELECT
-      shrub_id,
-      direction,
-      survey_date
+  SELECT
+    shrub_id,
+    direction,
+    survey_date
     FROM stems_temp.plots_plants
   )
   ;
   "
+
+safe_transaction(
+  action     = insert_pre,
+  ref_object = plots_plants
 )
+```
 
 
 # add stem_id generated from insert of new stems to plots_plants
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+# DBI::dbExecute(
+#   conn      = pg,
+#   statement = "
+#   UPDATE stems_temp.plots_plants
+#   SET stem_id_new = urbancndep.stems.id
+#   FROM urbancndep.stems
+#   WHERE
+#     urbancndep.stems.shrub_id = plots_plants.shrub_id AND
+#     urbancndep.stems.direction = plots_plants.direction AND
+#     urbancndep.stems.pre_date = plots_plants.survey_date
+#   ;
+#   "
+# ) # note pre_date used here!
+
+```{r}
+#| eval: true
+
+add_stem_id_new <- "
   UPDATE stems_temp.plots_plants
   SET stem_id_new = urbancndep.stems.id
   FROM urbancndep.stems
@@ -150,14 +208,19 @@ DBI::dbExecute(
     urbancndep.stems.pre_date = plots_plants.survey_date
   ;
   "
-) # note pre_date used here!
 
+safe_transaction(
+  action     = add_stem_id_new,
+  ref_object = plots_plants
+)
+```
 
 # add stem_id generated from update of old stems to plots_plants
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+```{r}
+#| eval: true
+
+add_stem_id_old <- "
   UPDATE stems_temp.plots_plants
   SET stem_id_old = urbancndep.stems.id
   FROM urbancndep.stems
@@ -167,10 +230,18 @@ DBI::dbExecute(
     urbancndep.stems.post_date = plots_plants.survey_date
   ;
   "
-) # note post_date used here!
+
+safe_transaction(
+  action     = add_stem_id_old,
+  ref_object = plots_plants
+)
+```
 
 
 # prep for and add stem_id generated from update of stems to old;
+
+```{r}
+#| eval: true
 
 DBI::dbExecute(
   conn      = pg,
@@ -181,10 +252,13 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+
+```{r}
+#| eval: true
+
+update_stems_old <- "
   UPDATE stems_temp.old
   SET stem_id = plots_plants.stem_id_old
   FROM stems_temp.plots_plants
@@ -194,10 +268,17 @@ DBI::dbExecute(
     SUBSTRING(plots_plants.direction, 1, 1) = old.old_direction
   ;
   "
-)
 
+safe_transaction(
+  action     = update_stems_old,
+  ref_object = old
+)
+```
 
 # add boolean TRUE to denote post measurement
+
+```{r}
+#| eval: true
 
 DBI::dbExecute(
   conn      = pg,
@@ -207,13 +288,15 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
 
 # insert old lengths into pg.stem_lengths
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+```{r}
+#| eval: true
+
+insert_old <- "
   INSERT INTO urbancndep.stem_lengths
   (
     stem_id,
@@ -230,11 +313,18 @@ DBI::dbExecute(
   )
   ;
   "
-)
 
+safe_transaction(
+  action     = insert_old,
+  ref_object = old
+)
+```
 
 # prep for and add stem_id generated from insert of stems to new;
 # prep boolean FALSE to denote post measurement (later step)
+
+```{r}
+#| eval: true
 
 DBI::dbExecute(
   conn      = pg,
@@ -245,10 +335,13 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+
+```{r}
+#| eval: true
+
+update_stems_new <- "
   UPDATE stems_temp.new
   SET stem_id = plots_plants.stem_id_new
   FROM stems_temp.plots_plants
@@ -258,7 +351,16 @@ DBI::dbExecute(
     SUBSTRING(plots_plants.direction, 1, 1) = new.new_direction
   ;
   "
+
+safe_transaction(
+  action     = update_stems_new,
+  ref_object = new
 )
+```
+
+
+```{r}
+#| eval: true
 
 DBI::dbExecute(
   conn      = pg,
@@ -268,13 +370,15 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
 
 # insert new lengths into pg.stem_lengths
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
+```{r}
+#| eval: true
+
+insert_stems_new <- "
   INSERT INTO urbancndep.stem_lengths
   (
     stem_id,
@@ -291,7 +395,12 @@ DBI::dbExecute(
     )
   ;
   "
+
+safe_transaction(
+  action     = insert_stems_new,
+  ref_object = new
 )
+```
 
 
 # insert any notes about the plants into the stems_comment table by setting
@@ -300,49 +409,68 @@ DBI::dbExecute(
 # corresponding to the new collection, though dead or new plant might be an
 # example. Just be cognizant of this and edit as required.
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
-  INSERT INTO urbancndep.stem_comment
-  (
-    stem_id,
-    comment,
-    post_measurement
-  )
-  (
-    SELECT
-      stem_id_old,  -- forces association with old lenghts (post visit)
-      note_about_plant,
-      'TRUE'        -- forces association with old lengths (post visit)
-    FROM stems_temp.plots_plants
-    WHERE note_about_plant IS NOT NULL
+```{r}
+#| eval: true
+
+DBI::dbWithTransaction(
+  conn = pg,
+  {
+    DBI::dbExecute(
+      conn      = pg,
+      statement = "
+      INSERT INTO urbancndep.stem_comment
+      (
+        stem_id,
+        comment,
+        post_measurement
+      )
+      (
+      SELECT
+        stem_id_old,  -- forces association with old lenghts (post visit)
+        note_about_plant,
+        'TRUE'        -- forces association with old lengths (post visit)
+      FROM stems_temp.plots_plants
+      WHERE note_about_plant IS NOT NULL
+      )
+      ;
+      "
     )
-  ;
-  "
+  }
 )
+```
+
 
 
 # add plot notes (new as of 2018-10-22)
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
-  INSERT INTO urbancndep.stem_plot_notes
-  (
-    plot_id,
-    survey_date,
-    plot_notes
-  )
-  (
-    SELECT
-      plot_id,
-      survey_date::date,
-      plot_notes
-    FROM stems_temp.plot_notes
+```{r}
+#| eval: true
+
+DBI::dbWithTransaction(
+  conn = pg,
+  {
+    DBI::dbExecute(
+      conn      = pg,
+      statement = "
+      INSERT INTO urbancndep.stem_plot_notes
+      (
+        plot_id,
+        survey_date,
+        plot_notes
+      )
+      (
+      SELECT
+        plot_id,
+        survey_date::date,
+        plot_notes
+      FROM stems_temp.plot_notes
+      )
+      ;
+      "
     )
-  ;
-  "
+  }
 )
+```
           
 
 # address missing NULL values ---------------------------------------------
@@ -352,6 +480,7 @@ DBI::dbExecute(
 # SO ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
 # - still the case through the 2023 data.
 # - still the case through the 2024 (spring) data.
+# - still the case through the 2024 (fall) data.
 
 # Identify the details of any NULL value new stems using new_null(). The trick
 # here is that this should only be an issue if there is a new stem with a single
@@ -361,6 +490,9 @@ DBI::dbExecute(
 # the database and thus avoid having a missing direction. So, for example, in
 # May 2017, there was a NULL value at WTM-71-L1-E but there was another
 # measurement for E so we could simple ignore that NULL value
+
+```{r}
+#| eval: true
 
 new_null <- function() {
 
@@ -400,10 +532,11 @@ new_null <- function() {
   }
 
   return(output)
+
 }
 
 new_null()
-
+```
 
 # address missing NEW values ----------------------------------------------
 
@@ -415,12 +548,22 @@ new_null()
 # these details to \code{annotate_new_missing} to: (1) document the NULL value
 # for that direction, and (2) add a comment.
 
+```{r}
+#| eval: true
+
 new_stems_missing <- identify_new_missing()
 
-purrr::pwalk(new_stems_missing, ~ annotate_new_missing(plot_id = ..4, plant_id = ..1, direction = ..2))
+purrr::pwalk(
+  .x = new_stems_missing,
+  .f = ~ annotate_new_missing(plot_id = ..4, plant_id = ..1, direction = ..2)
+)
+```
 
 
 # post-processing error checking -----------------------------------------------
+
+```{r}
+#| eval: true
 
 years <- c(
   lubridate::year(Sys.Date()) - 1,
@@ -468,9 +611,13 @@ recent_data <- DBI::dbGetQuery(
   conn      = pg,
   statement = query_recent
 )
+```
 
 
 # shrub dimensions -------------------------------------------------------------
+
+```{r}
+#| eval: true
 
 DBI::dbExecute(
   conn      = pg,
@@ -480,52 +627,64 @@ DBI::dbExecute(
   ;
   "
 )
+```
 
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
-  UPDATE stems_temp.shrub_dimensions
-  SET shrub_id = urbancndep.shrubs.id
-  FROM urbancndep.shrubs
-  WHERE
-    urbancndep.shrubs.plot_id = shrub_dimensions.plot_id AND
-    urbancndep.shrubs.code = shrub_dimensions.plant_id
-  ;
-  "
+
+```{r}
+#| eval: true
+
+DBI::dbWithTransaction(
+  conn = pg,
+  {
+    DBI::dbExecute(
+      conn      = pg,
+      statement = "
+      UPDATE stems_temp.shrub_dimensions
+      SET shrub_id = urbancndep.shrubs.id
+      FROM urbancndep.shrubs
+      WHERE
+        urbancndep.shrubs.plot_id = shrub_dimensions.plot_id AND
+        urbancndep.shrubs.code = shrub_dimensions.plant_id
+      ;
+      "
+    )
+    DBI::dbExecute(
+      conn      = pg,
+      statement = "
+      INSERT INTO urbancndep.shrub_measurements
+      (
+        plot_id,
+        survey_date,
+        plant,
+        canopy_extent_n_s,
+        canopy_extent_e_w,
+        height,
+        notes,
+        shrub_id
+      )
+      (
+      SELECT
+        plot_id,
+        survey_date::DATE,
+        'Larrea tridentata',
+        n_s,
+        e_w,
+        height_of_plant,
+        note_about_plant,
+        shrub_id
+      FROM stems_temp.shrub_dimensions
+      )
+      ;
+      "
+    )
+  }
 )
-
-
-DBI::dbExecute(
-  conn      = pg,
-  statement = "
-  INSERT INTO urbancndep.shrub_measurements
-  (
-    plot_id,
-    survey_date,
-    plant,
-    canopy_extent_n_s,
-    canopy_extent_e_w,
-    height,
-    notes,
-    shrub_id
-  )
-  (
-    SELECT
-      plot_id,
-      survey_date::DATE,
-      'Larrea tridentata',
-      n_s,
-      e_w,
-      height_of_plant,
-      note_about_plant,
-      shrub_id
-    FROM stems_temp.shrub_dimensions
-  )
-  ;
-  "
-)
+```
 
 # check shrub dimensions data
+
+```{r}
+#| eval: true
 
 query_recent_measurements <- glue::glue_sql("
   SELECT
@@ -541,6 +700,7 @@ query_recent_measurements <- glue::glue_sql("
   LEFT JOIN urbancndep.shrubs ON (shrubs.id = shrub_measurements.shrub_id)
   LEFT JOIN urbancndep.plots ON (shrubs.plot_id = plots.id)
   LEFT JOIN urbancndep.sites ON (plots.site_id = sites.id)
+  WHERE EXTRACT (YEAR FROM shrub_measurements.survey_date) IN ({ years* })
   ORDER BY
     plots.id,
     shrubs.code
@@ -553,10 +713,15 @@ recent_measurements <- DBI::dbGetQuery(
   conn      = pg,
   statement = query_recent_measurements
 )
+```
 
 # CLEAN UP ---------------------------------------------------------------------
 
+```{r}
+#| eval: true
+
 DBI::dbExecute(
   conn      = pg,
-  statement = "DROP SCHEMA IF EXISTS stems_temp CASCADE;"
+  statement = "DROP SCHEMA IF EXISTS stems_temp CASCADE ;"
 )
+```
