@@ -554,7 +554,7 @@ new_null()
 new_stems_missing <- identify_new_missing()
 
 purrr::pwalk(
-  .x = new_stems_missing,
+  .l = new_stems_missing,
   .f = ~ annotate_new_missing(plot_id = ..4, plant_id = ..1, direction = ..2)
 )
 ```

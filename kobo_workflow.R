@@ -7,8 +7,8 @@
 
 # Data-processing steps should be run sequentially (generally, anyway, as some
 # error-fixing steps may not be required). Once extracted and formatted
-# according to this workflow, follow the populate_database workflow to add the
-# data to the urbancndep database.
+# according to this workflow, follow the `populate_database.qmd` workflow to
+# add the data to the urbancndep database.
 
 # This workflow is new as of the spring 2022 collection, the first time using
 # the KoBo suite of tools; also new are biovolume measurements of the
