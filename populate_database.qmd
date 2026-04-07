@@ -112,8 +112,28 @@ recent_pre_date <- DBI::dbGetQuery(
   "
 )
 
-pre_date_month <- max(recent_pre_date$recentmos)
-pre_date_year  <- max(recent_pre_date$recentyear)
+recentmos <- sort(unique(as.integer(recent_pre_date$recentmos)))
+recentmos_gt8 <- recentmos[recentmos > 8]
+recentmos_lt8 <- recentmos[recentmos < 8]
+
+# Rule: prefer all months > 8 and ignore < 8 whenever any > 8 exist.
+# Otherwise, use all months < 8 (only when there are no months > 8).
+if (length(recentmos_gt8) > 0) {
+  pre_date_month <- recentmos_gt8
+  month_rule <- "using recentmos > 8"
+} else if (length(recentmos_lt8) > 0) {
+  pre_date_month <- recentmos_lt8
+  month_rule <- "using recentmos < 8 (no recentmos > 8 found)"
+} else {
+  stop("No valid values found in recentmos for pre_date_month selection.")
+}
+
+pre_date_year <- max(recent_pre_date$recentyear)
+
+message("month selection rule: ", month_rule)
+message("pre_date_month: ", paste(pre_date_month, collapse = ", "))
+message("pre_date_year: ", pre_date_year)
+
 ```
 
 # to address manually, change the last two lines of update_post_query to:
@@ -132,7 +152,7 @@ update_post_query <- glue::glue_sql("
   WHERE
     plots_plants.shrub_id = urbancndep.stems.shrub_id AND
     plots_plants.direction = urbancndep.stems.direction AND
-    EXTRACT(MONTH from urbancndep.stems.pre_date) IN ({ pre_date_month }) AND
+    EXTRACT(MONTH from urbancndep.stems.pre_date) IN ({ pre_date_month* }) AND
     EXTRACT(YEAR from urbancndep.stems.pre_date) = { pre_date_year }
   ;
   ",
@@ -566,6 +586,7 @@ purrr::pwalk(
 #| eval: true
 
 years <- c(
+  lubridate::year(Sys.Date()) - 2,
   lubridate::year(Sys.Date()) - 1,
   lubridate::year(Sys.Date())
 )
