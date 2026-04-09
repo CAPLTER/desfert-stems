@@ -9,6 +9,7 @@ source("helper_load_table.R")
 source("helper_identify_new_missing.R")
 source("helper_annotate_new_missing.R")
 source("helper_safe_transaction.R")
+
 ```
 
 # temporary schema -------------------------------------------------------------
@@ -18,6 +19,7 @@ source("helper_safe_transaction.R")
 
 DBI::dbExecute(pg, "DROP SCHEMA IF EXISTS stems_temp CASCADE ;")
 DBI::dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
+
 ```
 
 
@@ -59,6 +61,7 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
@@ -81,6 +84,7 @@ safe_transaction(
   action     = update_plots_plants,
   ref_object = plots_plants
 )
+
 ```
 
 
@@ -159,15 +163,21 @@ update_post_query <- glue::glue_sql("
   .con = DBI::ANSI()
 )
 
-DBI::dbWithTransaction(
-  con = pg,
-  {
-    DBI::dbExecute(
-      conn      = pg,
-      statement = update_post_query
-    )
-  }
-) # should be n = nrow(plots_plants)
+safe_transaction(
+  action     = update_post_query,
+  ref_object = plots_plants
+)
+
+# DBI::dbWithTransaction(
+#   con = pg,
+#   {
+#     DBI::dbExecute(
+#       conn      = pg,
+#       statement = update_post_query
+#     )
+#   }
+# ) # should be n = nrow(plots_plants)
+
 ```
 
 # insert pre data into pg.stems
@@ -183,10 +193,10 @@ insert_pre <- "
     pre_date
   )
   (
-  SELECT
-    shrub_id,
-    direction,
-    survey_date
+    SELECT
+      shrub_id,
+      direction,
+      survey_date
     FROM stems_temp.plots_plants
   )
   ;
@@ -196,6 +206,7 @@ safe_transaction(
   action     = insert_pre,
   ref_object = plots_plants
 )
+
 ```
 
 
@@ -233,6 +244,7 @@ safe_transaction(
   action     = add_stem_id_new,
   ref_object = plots_plants
 )
+
 ```
 
 # add stem_id generated from update of old stems to plots_plants
@@ -255,6 +267,7 @@ safe_transaction(
   action     = add_stem_id_old,
   ref_object = plots_plants
 )
+
 ```
 
 
@@ -272,6 +285,7 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
@@ -293,6 +307,7 @@ safe_transaction(
   action     = update_stems_old,
   ref_object = old
 )
+
 ```
 
 # add boolean TRUE to denote post measurement
@@ -338,6 +353,7 @@ safe_transaction(
   action     = insert_old,
   ref_object = old
 )
+
 ```
 
 # prep for and add stem_id generated from insert of stems to new;
@@ -355,6 +371,7 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
@@ -376,6 +393,7 @@ safe_transaction(
   action     = update_stems_new,
   ref_object = new
 )
+
 ```
 
 
@@ -390,6 +408,7 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
@@ -420,6 +439,7 @@ safe_transaction(
   action     = insert_stems_new,
   ref_object = new
 )
+
 ```
 
 
@@ -564,9 +584,9 @@ new_null()
 
 # Identify the details of any missing new stems using
 # \code{identify_new_missing}. We need to document cases where there are not any
-# new-stem measurements for a particular plot*plant*direction. We can then pass
-# these details to \code{annotate_new_missing} to: (1) document the NULL value
-# for that direction, and (2) add a comment.
+# new-stem measurements for a particular `plot*plant*direction`. We can then
+# pass these details to \code{annotate_new_missing} to: (1) document the NULL
+# value for that direction, and (2) add a comment.
 
 ```{r}
 #| eval: true

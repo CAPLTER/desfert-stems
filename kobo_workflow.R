@@ -47,6 +47,9 @@ plots_plants <- dplyr::left_join(
   by = c("uuid" = "submission_uuid")
 ) |>
   dplyr::mutate(
+    note_about_plot  = gsub(",", " ", note_about_plot),
+    note_about_plot  = gsub("[\n\r]", " ", note_about_plot),
+    note_about_plot  = stringr::str_trim(note_about_plot, side = c("both")),
     note_about_plant = gsub(",", " ", note_about_plant),
     note_about_plant = gsub("[\n\r]", " ", note_about_plant),
     note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))
@@ -120,18 +123,18 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 
 # Example, here it seems that the E-W dimension of a shrub was entered into the notes field:
 
-plots_plants <- plots_plants |>
-  dplyr::mutate(
-    width_of_plant_at_widest_point_e_w = dplyr::case_when(
-      id == 400565687 & plant_id == "L1" ~ 2.16,
-      TRUE ~ width_of_plant_at_widest_point_e_w
-    ),
-    note_about_plant = dplyr::case_when(
-      id == 400565687 & plant_id == "L1" ~
-        "width_of_plant_at_widest_point_e_w was miscoded; value reflects a likely measurement based on field notes",
-      TRUE ~ note_about_plant
-    )
-  )
+# plots_plants <- plots_plants |>
+#   dplyr::mutate(
+#     width_of_plant_at_widest_point_e_w = dplyr::case_when(
+#       id == 400565687 & plant_id == "L1" ~ 2.16,
+#       TRUE ~ width_of_plant_at_widest_point_e_w
+#     ),
+#     note_about_plant = dplyr::case_when(
+#       id == 400565687 & plant_id == "L1" ~
+#         "width_of_plant_at_widest_point_e_w was miscoded; value reflects a likely measurement based on field notes",
+#       TRUE ~ note_about_plant
+#     )
+#   )
 
 
 # STEP 4: apply appropriate formatting and metadata to new and old stem lengths
@@ -175,12 +178,12 @@ new <- dplyr::left_join(
 # remove_ambiguous_plants description for function details; these in addition
 # to the plot-level error and fix addressed at STEP 3
 
-remove_ambiguous_plants(
-  plot             = 64,
-  duplicated_plant = "L2",
-  missing_plant    = "L3",
-  survey_date      = "2024-10-22"
-)
+# remove_ambiguous_plants(
+#   plot             = 64,
+#   duplicated_plant = "L2",
+#   missing_plant    = "L3",
+#   survey_date      = "2024-10-22"
+# )
 
 
 # STEP 6: shrub dimensions
