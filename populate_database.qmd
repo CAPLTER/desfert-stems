@@ -1,6 +1,6 @@
-## README
+# README
 
-# Workflow to upload DesFert stem-length data to the urbancndep database.
+Workflow to upload DesFert stem-length data to the urbancndep database.
 
 ```{r}
 #| eval: true
@@ -11,6 +11,7 @@ source("helper_annotate_new_missing.R")
 source("helper_safe_transaction.R")
 
 ```
+
 
 # temporary schema -------------------------------------------------------------
 
@@ -39,13 +40,13 @@ purrr::walk(
 
 # data manipulation (SQL) -----------------------------------------------------
 
-# run SQL run sequentially!
+run SQL run sequentially!
 
-# alter stems_temp.plots_plants as appropriate
-# - change survey_date to a date (may not be needed)
-# - add shrub ID from urbancndep
-# - prep for and add shrub_ids to the plots_plants tablet-derived data
-# - prep for and add stem_id generated from insert of new stems to plots_plants (a later step)
+alter stems_temp.plots_plants as appropriate
+- change survey_date to a date (may not be needed)
+- add shrub ID from urbancndep
+- prep for and add shrub_ids to the plots_plants tablet-derived data
+- prep for and add stem_id generated from insert of new stems to plots_plants (a later step)
 
 ```{r}
 #| eval: true
@@ -90,14 +91,14 @@ safe_transaction(
 
 # update existing pg.stems with this survey's post date & notes
 
-# Be certain to set month & year to the correct pre date, which should be the
-# most recent set (may include multiple months).
+Be certain to set month & year to the correct pre date, which should be the most
+recent set (may include multiple months).
 
-# Get the month and date of the most recent previous stems survey to pass to
-# the update query. Note that this query is specific to when the last set of
-# stems were measured in a single month (e.g., 5 or 10). If stem surveys
-# spanned multiple months, which is rare but has happened, you either need to
-# update the query or pass those values manually.
+Get the month and date of the most recent previous stems survey to pass to the
+update query. Note that this query is specific to when the last set of stems
+were measured in a single month (e.g., 5 or 10). If stem surveys spanned
+multiple months, which is rare but has happened, you either need to update the
+query or pass those values manually.
 
 ```{r}
 #| eval: true
@@ -140,9 +141,9 @@ message("pre_date_year: ", pre_date_year)
 
 ```
 
-# to address manually, change the last two lines of update_post_query to:
-# EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-# EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
+to address manually, change the last two lines of update_post_query to:
+EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
+EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
 
 ```{r}
 #| eval: true
@@ -167,16 +168,6 @@ safe_transaction(
   action     = update_post_query,
   ref_object = plots_plants
 )
-
-# DBI::dbWithTransaction(
-#   con = pg,
-#   {
-#     DBI::dbExecute(
-#       conn      = pg,
-#       statement = update_post_query
-#     )
-#   }
-# ) # should be n = nrow(plots_plants)
 
 ```
 
@@ -212,19 +203,7 @@ safe_transaction(
 
 # add stem_id generated from insert of new stems to plots_plants
 
-# DBI::dbExecute(
-#   conn      = pg,
-#   statement = "
-#   UPDATE stems_temp.plots_plants
-#   SET stem_id_new = urbancndep.stems.id
-#   FROM urbancndep.stems
-#   WHERE
-#     urbancndep.stems.shrub_id = plots_plants.shrub_id AND
-#     urbancndep.stems.direction = plots_plants.direction AND
-#     urbancndep.stems.pre_date = plots_plants.survey_date
-#   ;
-#   "
-# ) # note pre_date used here!
+note the use of `urbancndep.stems.pre_date` in this query
 
 ```{r}
 #| eval: true
@@ -443,11 +422,9 @@ safe_transaction(
 ```
 
 
-# insert any notes about the plants into the stems_comment table by setting
-# post_measurement to TRUE, the query assumes the comment was made upon old
-# collection (post visit) this is reasonable and it is hard to imagine a comment
-# corresponding to the new collection, though dead or new plant might be an
-# example. Just be cognizant of this and edit as required.
+# insert any notes about plants into stem_comment using plant-level keys
+# (shrub_id, survey_date). Values are deduplicated per key when the same note
+# appears in multiple directional rows.
 
 ```{r}
 #| eval: true
@@ -460,17 +437,30 @@ DBI::dbWithTransaction(
       statement = "
       INSERT INTO urbancndep.stem_comment
       (
-        stem_id,
-        comment,
-        post_measurement
+        shrub_id,
+        survey_date,
+        comment
       )
       (
+      WITH stems_temp_note_rows AS (
+        SELECT
+          stems_temp.plots_plants.shrub_id,
+          stems_temp.plots_plants.survey_date::date AS survey_date,
+          NULLIF(BTRIM(stems_temp.plots_plants.note_about_plant), '') AS comment
+        FROM stems_temp.plots_plants
+        WHERE stems_temp.plots_plants.shrub_id IS NOT NULL
+          AND stems_temp.plots_plants.survey_date IS NOT NULL
+          AND NULLIF(BTRIM(stems_temp.plots_plants.note_about_plant), '') IS NOT NULL
+      )
       SELECT
-        stem_id_old,  -- forces association with old lenghts (post visit)
-        note_about_plant,
-        'TRUE'        -- forces association with old lengths (post visit)
-      FROM stems_temp.plots_plants
-      WHERE note_about_plant IS NOT NULL
+        stems_temp_note_rows.shrub_id,
+        stems_temp_note_rows.survey_date,
+        STRING_AGG(
+          DISTINCT stems_temp_note_rows.comment,
+          '; ' ORDER BY stems_temp_note_rows.comment
+        ) AS comment
+      FROM stems_temp_note_rows
+      GROUP BY stems_temp_note_rows.shrub_id, stems_temp_note_rows.survey_date
       )
       ;
       "
@@ -479,6 +469,25 @@ DBI::dbWithTransaction(
 )
 ```
 
+
+# identify plot notes that will be rejected before insert
+
+```{r}
+#| eval: true
+
+DBI::dbGetQuery(
+  conn = pg,
+  statement = "
+  SELECT
+    COUNT(*) AS rejected_plot_note_rows
+  FROM stems_temp.plot_notes
+  WHERE survey_date IS NULL
+     OR NULLIF(BTRIM(plot_notes), '') IS NULL
+  ;
+  "
+)
+
+```
 
 
 # add plot notes (new as of 2018-10-22)
@@ -502,8 +511,10 @@ DBI::dbWithTransaction(
       SELECT
         plot_id,
         survey_date::date,
-        plot_notes
+        NULLIF(BTRIM(plot_notes), '') AS plot_notes
       FROM stems_temp.plot_notes
+      WHERE survey_date IS NOT NULL
+        AND NULLIF(BTRIM(plot_notes), '') IS NOT NULL
       )
       ;
       "
@@ -515,21 +526,21 @@ DBI::dbWithTransaction(
 
 # address missing NULL values ---------------------------------------------
 
-# WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL
-# 2022 WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION
-# SO ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
-# - still the case through the 2023 data.
-# - still the case through the 2024 (spring) data.
-# - still the case through the 2024 (fall) data.
+WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL 2022
+WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION SO
+ADDRESS A WORKFLOW FOR NULL NEW VALUES IN A FUTURE COLLECTION.
+- still the case through the 2023 data.
+- still the case through the 2024 (spring) data.
+- still the case through the 2024 (fall) data.
 
-# Identify the details of any NULL value new stems using new_null(). The trick
-# here is that this should only be an issue if there is a new stem with a single
-# null value and no other values. If that is the case, you may have to treat
-# that stem like a missing new value. However, if there are two new values for a
-# single direction, then one can be NULL but the other one will be entered into
-# the database and thus avoid having a missing direction. So, for example, in
-# May 2017, there was a NULL value at WTM-71-L1-E but there was another
-# measurement for E so we could simple ignore that NULL value
+Identify the details of any NULL value new stems using new_null(). The trick
+here is that this should only be an issue if there is a new stem with a single
+null value and no other values. If that is the case, you may have to treat that
+stem like a missing new value. However, if there are two new values for a single
+direction, then one can be NULL but the other one will be entered into the
+database and thus avoid having a missing direction. So, for example, in May
+2017, there was a NULL value at WTM-71-L1-E but there was another measurement
+for E so we could simple ignore that NULL value
 
 ```{r}
 #| eval: true
@@ -580,13 +591,13 @@ new_null()
 
 # address missing NEW values ----------------------------------------------
 
-# identify and document missing new stems data
+identify and document missing new stems data
 
-# Identify the details of any missing new stems using
-# \code{identify_new_missing}. We need to document cases where there are not any
-# new-stem measurements for a particular `plot*plant*direction`. We can then
-# pass these details to \code{annotate_new_missing} to: (1) document the NULL
-# value for that direction, and (2) add a comment.
+Identify the details of any missing new stems using \code{identify_new_missing}.
+We need to document cases where there are not any new-stem measurements for a
+particular `plot*plant*direction`. We can then pass these details to
+\code{annotate_new_missing} to: (1) document the NULL value for that direction,
+and (2) add a `missing value` note to `urbancndep.stems.pre_note`.
 
 ```{r}
 #| eval: true
@@ -622,6 +633,7 @@ query_recent <- glue::glue_sql("
     st.id,
     st.direction,
     st.pre_date,
+    st.pre_note,
     st.post_date,
     st.post_note,
     sl.post_measurement,

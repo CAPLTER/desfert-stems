@@ -53,6 +53,44 @@ SELECT
   ) THEN 'PASS' ELSE 'FAIL' END AS status;
 
 SELECT
+  'stems_has_pre_note' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stems'
+      AND column_name = 'pre_note'
+  ) THEN 'PASS' ELSE 'FAIL' END AS status;
+
+SELECT
+  'stem_comment_shrub_id_not_null_constraint' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stem_comment'
+      AND column_name = 'shrub_id'
+      AND is_nullable = 'NO'
+  ) THEN 'PASS' ELSE 'FAIL' END AS status;
+
+SELECT
+  'stem_comment_survey_date_not_null_constraint' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stem_comment'
+      AND column_name = 'survey_date'
+      AND is_nullable = 'NO'
+  ) THEN 'PASS' ELSE 'FAIL' END AS status;
+
+SELECT
+  'stem_comment_shrub_survey_unique_index' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1
+    FROM pg_indexes
+    WHERE schemaname = 'urbancndep'
+      AND indexname = 'stem_comment_shrub_survey_uq'
+  ) THEN 'PASS' ELSE 'FAIL' END AS status;
+
+SELECT
   'stem_plot_notes_survey_date_not_null_constraint' AS check_name,
   CASE WHEN EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -144,7 +182,6 @@ DO $$
 DECLARE
   has_shrub_id boolean;
   has_survey_date boolean;
-  has_comment boolean;
   v_duplicate_groups bigint := -1;
   v_status text := 'FAIL';
 BEGIN
@@ -162,28 +199,19 @@ BEGIN
       AND column_name = 'survey_date'
   ) INTO has_survey_date;
 
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'urbancndep'
-      AND table_name = 'stem_comment'
-      AND column_name = 'comment'
-  ) INTO has_comment;
-
-  IF has_shrub_id AND has_survey_date AND has_comment THEN
+  IF has_shrub_id AND has_survey_date THEN
     EXECUTE $sql$
       SELECT COUNT(*)
       FROM (
         SELECT
-          sc.shrub_id,
-          sc.survey_date,
-          sc.comment
-        FROM urbancndep.stem_comment sc
-        WHERE sc.shrub_id IS NOT NULL
-          AND sc.survey_date IS NOT NULL
-          AND sc.comment IS NOT NULL
-        GROUP BY sc.shrub_id, sc.survey_date, sc.comment
+          urbancndep.stem_comment.shrub_id,
+          urbancndep.stem_comment.survey_date
+        FROM urbancndep.stem_comment
+        WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+          AND urbancndep.stem_comment.survey_date IS NOT NULL
+        GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
         HAVING COUNT(*) > 1
-      ) d
+      ) duplicate_group_count
     $sql$
     INTO v_duplicate_groups;
 
@@ -191,10 +219,10 @@ BEGIN
       v_status := 'PASS';
     END IF;
 
-    RAISE NOTICE 'stem_comment_duplicate_groups_shrub_date_comment: duplicate_groups=%, status=%',
+    RAISE NOTICE 'stem_comment_duplicate_groups_shrub_date: duplicate_groups=%, status=%',
       v_duplicate_groups, v_status;
   ELSE
-    RAISE NOTICE 'stem_comment_duplicate_groups_shrub_date_comment: SKIP (required columns absent)';
+    RAISE NOTICE 'stem_comment_duplicate_groups_shrub_date: SKIP (required columns absent)';
   END IF;
 END;
 $$;
@@ -234,6 +262,33 @@ BEGIN
     ) d;
 
     RAISE NOTICE 'stems_post_note_distribution: distinct_values=%', v_distinct_values;
+  END IF;
+END;
+$$;
+
+\echo '=== 3b) pre_note migration checks ==='
+DO $$
+DECLARE
+  v_remaining_pre_missing_comments bigint := NULL;
+  v_status text := 'FAIL';
+BEGIN
+  IF to_regclass('urbancndep.stem_comment') IS NULL THEN
+    RAISE NOTICE 'pre_missing_value_comment_remaining: SKIP (table urbancndep.stem_comment does not exist)';
+  ELSE
+    EXECUTE $sql$
+      SELECT COUNT(*)
+      FROM urbancndep.stem_comment
+      WHERE post_measurement = FALSE
+        AND BTRIM(LOWER(comment)) = 'missing value'
+    $sql$
+    INTO v_remaining_pre_missing_comments;
+
+    IF v_remaining_pre_missing_comments = 0 THEN
+      v_status := 'PASS';
+    END IF;
+
+    RAISE NOTICE 'pre_missing_value_comment_remaining: rows=%, status=%',
+      v_remaining_pre_missing_comments, v_status;
   END IF;
 END;
 $$;

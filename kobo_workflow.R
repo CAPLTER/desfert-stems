@@ -29,6 +29,7 @@ source("helper_manage_post_notes.R")
 # path to KoBo download
 
 path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-09-56.xlsx"
+path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-11-05.xlsx"
 
 
 # STEP 1: read data from KoBo download
@@ -95,6 +96,18 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #     )
 #   )
 
+# Example, here fixing data for a plant in the October 2025 so we need to go
+# back and recreate plots_plants after running this; this error was identified
+# from the complete_matrix:
+
+# plants <- plants |>
+#   dplyr::mutate(
+#     plant_id = dplyr::case_when(
+#       index == 56 ~ 'L5',
+#       TRUE ~ plant_id
+#     )
+#   )
+
 # Generally, we will want to make a note about any data edits, particularly if
 # there is any uncertainty or subjectivity to them. In most cases, the note,
 # even if at the plot level, should be addressed at the plant level so that the
@@ -121,7 +134,8 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 # It is important to rebuild plots_plants when addressing fixes like the above
 # that affect the components that are used to build plots_plants.
 
-# Example, here it seems that the E-W dimension of a shrub was entered into the notes field:
+# Example, here it seems that the E-W dimension of a shrub was entered into the
+# notes field:
 
 # plots_plants <- plots_plants |>
 #   dplyr::mutate(

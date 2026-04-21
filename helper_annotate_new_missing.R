@@ -7,7 +7,8 @@
 #' the data were not collected. We can use \code{identify_new_missing} to
 #' identify occurence where new stem measurements are not available;
 #' \code{annotate_new_missing} can then be used to add the appropriate
-#' documentation to the database.
+#' documentation to the database, including a `missing value` note in
+#' \code{urbancndep.stems.pre_note}.
 #'
 #' @export
 #'
@@ -56,34 +57,27 @@ annotate_new_missing <- function(
   .con = DBI::ANSI()
   )
 
-  # Where missing, add comment to stem comments - use details from
-  # new_missing() to populate year, month, plot, plant, and direction. Do this
-  # for each missing stem.
+  # Where missing, add missing-note context directly to stems.pre_note for the
+  # pre/new measurement stem.
 
-  comment_query <- glue::glue_sql("
-    INSERT INTO urbancndep.stem_comment(
-      stem_id,
-      post_measurement,
-      comment
-    )
-    (
-      SELECT
-        id,
-        FALSE,
-        'missing value'
-      FROM urbancndep.stems
-      WHERE
-        EXTRACT (YEAR FROM pre_date) = { pre_year } AND
-        EXTRACT (MONTH FROM pre_date) = { pre_month } AND
-        shrub_id IN (
-          SELECT id
-          FROM urbancndep.shrubs
-          WHERE
-            plot_id = { plot_id } AND
-            code LIKE { plant_id }
-          ) AND
-        direction ILIKE { this_direction }
-    )
+  pre_note_query <- glue::glue_sql("
+    UPDATE urbancndep.stems
+    SET pre_note = CASE
+      WHEN pre_note IS NULL THEN 'missing value'
+      WHEN POSITION('missing value' IN pre_note) > 0 THEN pre_note
+      ELSE pre_note || '; missing value'
+    END
+    WHERE
+      EXTRACT (YEAR FROM pre_date) = { pre_year } AND
+      EXTRACT (MONTH FROM pre_date) = { pre_month } AND
+      shrub_id IN (
+        SELECT id
+        FROM urbancndep.shrubs
+        WHERE
+          plot_id = { plot_id } AND
+          code LIKE { plant_id }
+        ) AND
+      direction ILIKE { this_direction }
     ;
     ",
     .con = DBI::ANSI()
@@ -97,12 +91,12 @@ annotate_new_missing <- function(
     statement = lengths_query
   )
 
-  comment_insert <- DBI::dbExecute(
+  pre_note_update <- DBI::dbExecute(
     conn      = pg,
-    statement = comment_query
+    statement = pre_note_query
   )
 
-  if (lengths_insert == 1 & comment_insert == 1) {
+  if (lengths_insert == 1 && pre_note_update == 1) {
 
     DBI::dbCommit(conn = pg)
     message("annotated missing stem: plot ", plot_id,  "; plant ", plant_id, "; direction ", direction)
@@ -110,7 +104,7 @@ annotate_new_missing <- function(
   } else {
 
     DBI::dbRollback(conn = pg)
-    error("rolling back transaction")
+    stop("rolling back transaction")
 
   }
 

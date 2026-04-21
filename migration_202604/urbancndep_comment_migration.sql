@@ -133,6 +133,9 @@ ALTER TABLE urbancndep.stem_comment
   ADD COLUMN IF NOT EXISTS shrub_id integer,
   ADD COLUMN IF NOT EXISTS survey_date date;
 
+ALTER TABLE urbancndep.stems
+  ADD COLUMN IF NOT EXISTS pre_note text;
+
 CREATE INDEX IF NOT EXISTS stem_comment_shrub_survey_idx
   ON urbancndep.stem_comment (shrub_id, survey_date);
 
@@ -161,6 +164,9 @@ COMMENT ON COLUMN urbancndep.stem_comment.stem_id IS
 COMMENT ON COLUMN urbancndep.stem_comment.post_measurement IS
   'Legacy stem-level pre/post marker retained for backward compatibility. Plant-level comments should be interpreted by shrub_id and survey_date.';
 
+COMMENT ON COLUMN urbancndep.stems.pre_note IS
+  'Pre/new measurement note for stem-level collection context (for example, missing pre measurement values).';
+
 COMMIT;
 
 -- -----------------------------------------------------------------------------
@@ -180,6 +186,10 @@ UPDATE urbancndep.stems
 SET post_note = pg_temp.normalize_note(post_note)
 WHERE post_note IS DISTINCT FROM pg_temp.normalize_note(post_note);
 
+UPDATE urbancndep.stems
+SET pre_note = pg_temp.normalize_note(pre_note)
+WHERE pre_note IS DISTINCT FROM pg_temp.normalize_note(pre_note);
+
 UPDATE urbancndep.stem_plot_notes
 SET plot_notes = pg_temp.normalize_note(plot_notes)
 WHERE plot_notes IS DISTINCT FROM pg_temp.normalize_note(plot_notes);
@@ -198,11 +208,90 @@ BEGIN
     RAISE EXCEPTION 'Normalization failure: control chars remain in stems.post_note';
   END IF;
 
+  IF EXISTS (SELECT 1 FROM urbancndep.stems WHERE pre_note ~ '[[:cntrl:]]') THEN
+    RAISE EXCEPTION 'Normalization failure: control chars remain in stems.pre_note';
+  END IF;
+
   IF EXISTS (SELECT 1 FROM urbancndep.stem_plot_notes WHERE plot_notes ~ '[[:cntrl:]]') THEN
     RAISE EXCEPTION 'Normalization failure: control chars remain in stem_plot_notes.plot_notes';
   END IF;
 END;
 $$;
+
+COMMIT;
+
+-- -----------------------------------------------------------------------------
+-- Phase 2b: Move pre-measurement missing-value comments to stems.pre_note
+-- Rules:
+-- 1) Source rows are legacy stem_comment rows with post_measurement = FALSE
+-- 2) Migrate only rows where normalized comment = 'missing value'
+-- 3) Append to stems.pre_note if needed, then delete migrated stem_comment rows
+-- -----------------------------------------------------------------------------
+BEGIN;
+
+WITH pre_missing_source AS (
+  SELECT
+    urbancndep.stem_comment.id,
+    urbancndep.stem_comment.stem_id,
+    pg_temp.normalize_note(urbancndep.stem_comment.comment) AS normalized_comment
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.post_measurement = FALSE
+    AND urbancndep.stem_comment.stem_id IS NOT NULL
+    AND pg_temp.normalize_note(urbancndep.stem_comment.comment) = 'missing value'
+),
+pre_note_target AS (
+  SELECT
+    urbancndep.stems.id AS stem_id,
+    CASE
+      WHEN pg_temp.normalize_note(urbancndep.stems.pre_note) IS NULL THEN 'missing value'
+      WHEN POSITION('missing value' IN pg_temp.normalize_note(urbancndep.stems.pre_note)) > 0 THEN pg_temp.normalize_note(urbancndep.stems.pre_note)
+      ELSE pg_temp.normalize_note(urbancndep.stems.pre_note) || '; missing value'
+    END AS new_pre_note
+  FROM urbancndep.stems
+  JOIN pre_missing_source
+    ON pre_missing_source.stem_id = urbancndep.stems.id
+)
+UPDATE urbancndep.stems
+SET pre_note = pre_note_target.new_pre_note
+FROM pre_note_target
+WHERE urbancndep.stems.id = pre_note_target.stem_id;
+
+INSERT INTO urbancndep.stem_comment_redesign_audit (
+  migration_label,
+  stage,
+  stem_comment_id,
+  stem_id,
+  source_note,
+  reason
+)
+SELECT
+  :'migration_label',
+  'phase_2b_pre_note_migration',
+  urbancndep.stem_comment.id,
+  urbancndep.stem_comment.stem_id,
+  urbancndep.stem_comment.comment,
+  'migrated_pre_measurement_missing_value_to_stems_pre_note'
+FROM urbancndep.stem_comment
+WHERE urbancndep.stem_comment.post_measurement = FALSE
+  AND urbancndep.stem_comment.stem_id IS NOT NULL
+  AND pg_temp.normalize_note(urbancndep.stem_comment.comment) = 'missing value'
+ON CONFLICT DO NOTHING;
+
+WITH deleted_source AS (
+  DELETE FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.post_measurement = FALSE
+    AND urbancndep.stem_comment.stem_id IS NOT NULL
+    AND pg_temp.normalize_note(urbancndep.stem_comment.comment) = 'missing value'
+  RETURNING urbancndep.stem_comment.id
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2b', 'pre_missing_value_comment_rows_migrated_to_pre_note', COUNT(*)
+FROM deleted_source;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2b', 'stems_with_pre_note_missing_value', COUNT(*)
+FROM urbancndep.stems
+WHERE POSITION('missing value' IN COALESCE(urbancndep.stems.pre_note, '')) > 0;
 
 COMMIT;
 
@@ -214,12 +303,12 @@ BEGIN;
 UPDATE urbancndep.stem_comment sc
 SET
   shrub_id = st.shrub_id,
-  survey_date = st.post_date
+  survey_date = COALESCE(st.post_date, st.pre_date)
 FROM urbancndep.stems st
 WHERE sc.stem_id = st.id
   AND (
     sc.shrub_id IS DISTINCT FROM st.shrub_id
-    OR sc.survey_date IS DISTINCT FROM st.post_date
+    OR sc.survey_date IS DISTINCT FROM COALESCE(st.post_date, st.pre_date)
   );
 
 -- Audit unresolved legacy rows (missing mapping keys)
@@ -244,7 +333,7 @@ SELECT
   CASE
     WHEN sc.stem_id IS NULL THEN 'legacy_row_without_stem_id'
     WHEN sc.shrub_id IS NULL THEN 'missing_shrub_id_after_backfill'
-    WHEN sc.survey_date IS NULL THEN 'missing_post_date_after_backfill'
+    WHEN sc.survey_date IS NULL THEN 'missing_stem_dates_after_backfill'
     ELSE 'other_unresolved'
   END
 FROM urbancndep.stem_comment sc
@@ -384,34 +473,38 @@ WHERE sc.survey_date >= DATE '2022-05-13'
 COMMIT;
 
 -- -----------------------------------------------------------------------------
--- Phase 4b: Collapse duplicate plant-level comments where appropriate
+-- Phase 4b: Duplicate-key consolidation before uniqueness hardening
 -- Rules:
--- 1) Duplicates are rows sharing (shrub_id, survey_date, comment)
--- 2) Collapse only when shrub_id, survey_date, and comment are all non-null
--- 3) Keep the lowest id row and audit/remove the remainder
+-- 1) Detect duplicate groups by (shrub_id, survey_date)
+-- 2) Keep one canonical row per key and merge comments onto keeper
+-- 3) Audit and remove non-keeper rows
+-- 4) Fail only if duplicates remain after consolidation
 -- -----------------------------------------------------------------------------
 BEGIN;
 
-WITH ranked AS (
+WITH duplicate_groups AS (
   SELECT
-    sc.id,
-    sc.stem_id,
-    sc.shrub_id,
-    sc.survey_date,
-    sc.comment,
-    ROW_NUMBER() OVER (
-      PARTITION BY sc.shrub_id, sc.survey_date, sc.comment
-      ORDER BY sc.id
-    ) AS rn
-  FROM urbancndep.stem_comment sc
-  WHERE sc.shrub_id IS NOT NULL
-    AND sc.survey_date IS NOT NULL
-    AND sc.comment IS NOT NULL
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date,
+    COUNT(*) AS row_count
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+    AND urbancndep.stem_comment.survey_date IS NOT NULL
+  GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+  HAVING COUNT(*) > 1
 ),
-dupes AS (
-  SELECT *
-  FROM ranked
-  WHERE rn > 1
+duplicate_rows AS (
+  SELECT
+    urbancndep.stem_comment.id,
+    urbancndep.stem_comment.stem_id,
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date,
+    urbancndep.stem_comment.comment,
+    duplicate_groups.row_count
+  FROM urbancndep.stem_comment
+  JOIN duplicate_groups
+    ON duplicate_groups.shrub_id = urbancndep.stem_comment.shrub_id
+   AND duplicate_groups.survey_date = urbancndep.stem_comment.survey_date
 )
 INSERT INTO urbancndep.stem_comment_redesign_audit (
   migration_label,
@@ -425,53 +518,205 @@ INSERT INTO urbancndep.stem_comment_redesign_audit (
 )
 SELECT
   :'migration_label',
-  'phase_4b_deduplicate',
-  d.id,
-  d.stem_id,
-  d.shrub_id,
-  d.survey_date,
-  d.comment,
-  'duplicate_shrub_id_survey_date_comment_removed'
-FROM dupes d
+  'phase_4b_duplicate_guardrail',
+  duplicate_rows.id,
+  duplicate_rows.stem_id,
+  duplicate_rows.shrub_id,
+  duplicate_rows.survey_date,
+  duplicate_rows.comment,
+  'duplicate_shrub_id_survey_date_detected'
+FROM duplicate_rows
 ON CONFLICT DO NOTHING;
 
-WITH ranked AS (
-  SELECT
-    sc.id,
-    ROW_NUMBER() OVER (
-      PARTITION BY sc.shrub_id, sc.survey_date, sc.comment
-      ORDER BY sc.id
-    ) AS rn
-  FROM urbancndep.stem_comment sc
-  WHERE sc.shrub_id IS NOT NULL
-    AND sc.survey_date IS NOT NULL
-    AND sc.comment IS NOT NULL
-),
-deleted AS (
-  DELETE FROM urbancndep.stem_comment sc
-  USING ranked r
-  WHERE sc.id = r.id
-    AND r.rn > 1
-  RETURNING sc.id
-)
 INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
-SELECT :'migration_label', 'phase_4b', 'duplicate_rows_removed', COUNT(*)
-FROM deleted;
-
-INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
-SELECT :'migration_label', 'phase_4b', 'duplicate_groups_remaining', COUNT(*)
+SELECT :'migration_label', 'phase_4b', 'duplicate_groups_by_shrub_survey', COUNT(*)
 FROM (
   SELECT
-    sc.shrub_id,
-    sc.survey_date,
-    sc.comment
-  FROM urbancndep.stem_comment sc
-  WHERE sc.shrub_id IS NOT NULL
-    AND sc.survey_date IS NOT NULL
-    AND sc.comment IS NOT NULL
-  GROUP BY sc.shrub_id, sc.survey_date, sc.comment
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+    AND urbancndep.stem_comment.survey_date IS NOT NULL
+  GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
   HAVING COUNT(*) > 1
-) q;
+) duplicate_group_count;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_4b', 'duplicate_rows_by_shrub_survey', COUNT(*)
+FROM (
+  SELECT
+    urbancndep.stem_comment.id
+  FROM urbancndep.stem_comment
+  JOIN (
+    SELECT
+      urbancndep.stem_comment.shrub_id,
+      urbancndep.stem_comment.survey_date
+    FROM urbancndep.stem_comment
+    WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+      AND urbancndep.stem_comment.survey_date IS NOT NULL
+    GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+    HAVING COUNT(*) > 1
+  ) duplicate_keys
+    ON duplicate_keys.shrub_id = urbancndep.stem_comment.shrub_id
+   AND duplicate_keys.survey_date = urbancndep.stem_comment.survey_date
+) duplicate_row_count;
+
+WITH duplicate_groups AS (
+  SELECT
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+    AND urbancndep.stem_comment.survey_date IS NOT NULL
+  GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+  HAVING COUNT(*) > 1
+),
+ranked_rows AS (
+  SELECT
+    urbancndep.stem_comment.id,
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date,
+    ROW_NUMBER() OVER (
+      PARTITION BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+      ORDER BY urbancndep.stem_comment.id
+    ) AS row_rank
+  FROM urbancndep.stem_comment
+  JOIN duplicate_groups
+    ON duplicate_groups.shrub_id = urbancndep.stem_comment.shrub_id
+   AND duplicate_groups.survey_date = urbancndep.stem_comment.survey_date
+),
+keeper_rows AS (
+  SELECT
+    ranked_rows.id,
+    ranked_rows.shrub_id,
+    ranked_rows.survey_date
+  FROM ranked_rows
+  WHERE ranked_rows.row_rank = 1
+),
+merged_comments AS (
+  SELECT
+    keeper_rows.id AS keeper_id,
+    STRING_AGG(
+      DISTINCT NULLIF(BTRIM(urbancndep.stem_comment.comment), ''),
+      '; ' ORDER BY NULLIF(BTRIM(urbancndep.stem_comment.comment), '')
+    ) AS merged_comment
+  FROM keeper_rows
+  JOIN urbancndep.stem_comment
+    ON urbancndep.stem_comment.shrub_id = keeper_rows.shrub_id
+   AND urbancndep.stem_comment.survey_date = keeper_rows.survey_date
+  GROUP BY keeper_rows.id
+)
+UPDATE urbancndep.stem_comment
+SET comment = merged_comments.merged_comment
+FROM merged_comments
+WHERE urbancndep.stem_comment.id = merged_comments.keeper_id;
+
+WITH duplicate_groups AS (
+  SELECT
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+    AND urbancndep.stem_comment.survey_date IS NOT NULL
+  GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+  HAVING COUNT(*) > 1
+),
+ranked_rows AS (
+  SELECT
+    urbancndep.stem_comment.id,
+    urbancndep.stem_comment.stem_id,
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date,
+    urbancndep.stem_comment.comment,
+    ROW_NUMBER() OVER (
+      PARTITION BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+      ORDER BY urbancndep.stem_comment.id
+    ) AS row_rank
+  FROM urbancndep.stem_comment
+  JOIN duplicate_groups
+    ON duplicate_groups.shrub_id = urbancndep.stem_comment.shrub_id
+   AND duplicate_groups.survey_date = urbancndep.stem_comment.survey_date
+)
+INSERT INTO urbancndep.stem_comment_redesign_audit (
+  migration_label,
+  stage,
+  stem_comment_id,
+  stem_id,
+  shrub_id,
+  survey_date,
+  source_note,
+  reason
+)
+SELECT
+  :'migration_label',
+  'phase_4b_duplicate_consolidation',
+  ranked_rows.id,
+  ranked_rows.stem_id,
+  ranked_rows.shrub_id,
+  ranked_rows.survey_date,
+  ranked_rows.comment,
+  'duplicate_shrub_id_survey_date_removed_after_merge'
+FROM ranked_rows
+WHERE ranked_rows.row_rank > 1
+ON CONFLICT DO NOTHING;
+
+WITH duplicate_groups AS (
+  SELECT
+    urbancndep.stem_comment.shrub_id,
+    urbancndep.stem_comment.survey_date
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+    AND urbancndep.stem_comment.survey_date IS NOT NULL
+  GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+  HAVING COUNT(*) > 1
+),
+ranked_rows AS (
+  SELECT
+    urbancndep.stem_comment.id,
+    ROW_NUMBER() OVER (
+      PARTITION BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+      ORDER BY urbancndep.stem_comment.id
+    ) AS row_rank
+  FROM urbancndep.stem_comment
+  JOIN duplicate_groups
+    ON duplicate_groups.shrub_id = urbancndep.stem_comment.shrub_id
+   AND duplicate_groups.survey_date = urbancndep.stem_comment.survey_date
+),
+deleted_rows AS (
+  DELETE FROM urbancndep.stem_comment
+  USING ranked_rows
+  WHERE urbancndep.stem_comment.id = ranked_rows.id
+    AND ranked_rows.row_rank > 1
+  RETURNING urbancndep.stem_comment.id
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_4b', 'duplicate_rows_deleted_after_merge', COUNT(*)
+FROM deleted_rows;
+
+DO $$
+DECLARE
+  v_duplicate_groups bigint;
+BEGIN
+  SELECT COUNT(*)
+  INTO v_duplicate_groups
+  FROM (
+    SELECT
+      urbancndep.stem_comment.shrub_id,
+      urbancndep.stem_comment.survey_date
+    FROM urbancndep.stem_comment
+    WHERE urbancndep.stem_comment.shrub_id IS NOT NULL
+      AND urbancndep.stem_comment.survey_date IS NOT NULL
+    GROUP BY urbancndep.stem_comment.shrub_id, urbancndep.stem_comment.survey_date
+    HAVING COUNT(*) > 1
+  ) duplicate_group_count;
+
+  IF v_duplicate_groups > 0 THEN
+    RAISE EXCEPTION
+      'Phase 4b failed: % duplicate (shrub_id, survey_date) groups remain after consolidation. Resolve before enforcing uniqueness.',
+      v_duplicate_groups;
+  END IF;
+END;
+$$;
 
 COMMIT;
 
@@ -653,6 +898,51 @@ $$;
 ALTER TABLE urbancndep.stem_plot_notes
   ALTER COLUMN survey_date SET NOT NULL,
   ALTER COLUMN plot_notes SET NOT NULL;
+
+COMMIT;
+
+-- -----------------------------------------------------------------------------
+-- Phase 6b: Enforce stem_comment key integrity (NOT NULL + UNIQUE)
+-- -----------------------------------------------------------------------------
+BEGIN;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_6b', 'stem_comment_null_shrub_or_date_before_hardening', COUNT(*)
+FROM urbancndep.stem_comment
+WHERE urbancndep.stem_comment.shrub_id IS NULL OR urbancndep.stem_comment.survey_date IS NULL;
+
+DO $$
+DECLARE
+  v_null_rows bigint;
+BEGIN
+  SELECT COUNT(*)
+  INTO v_null_rows
+  FROM urbancndep.stem_comment
+  WHERE urbancndep.stem_comment.shrub_id IS NULL OR urbancndep.stem_comment.survey_date IS NULL;
+
+  IF v_null_rows > 0 THEN
+    RAISE EXCEPTION
+      'Phase 6b failed: % stem_comment rows have NULL shrub_id or survey_date. Resolve before NOT NULL hardening.',
+      v_null_rows;
+  END IF;
+END;
+$$;
+
+ALTER TABLE urbancndep.stem_comment
+  ALTER COLUMN shrub_id SET NOT NULL,
+  ALTER COLUMN survey_date SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS stem_comment_shrub_survey_uq
+  ON urbancndep.stem_comment (shrub_id, survey_date);
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_6b', 'stem_comment_unique_index_present',
+  CASE WHEN EXISTS (
+    SELECT 1
+    FROM pg_indexes
+    WHERE schemaname = 'urbancndep'
+      AND indexname = 'stem_comment_shrub_survey_uq'
+  ) THEN 1 ELSE 0 END;
 
 COMMIT;
 
