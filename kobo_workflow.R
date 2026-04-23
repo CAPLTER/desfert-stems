@@ -28,7 +28,7 @@ source("helper_manage_post_notes.R")
 
 # path to KoBo download
 
-path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-09-56.xlsx"
+# path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-09-56.xlsx"
 path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-11-05.xlsx"
 
 
@@ -42,30 +42,40 @@ new    <- read_kobo_stems(path_to_file = path, worksheet = "new_stems_repeat")
 
 # STEP 2: build plots + plants
 
-plots_plants <- dplyr::left_join(
-  x  = plots |> dplyr::rename(plots_index = index),
-  y  = plants |> dplyr::rename(plants_index = index),
-  by = c("uuid" = "submission_uuid")
-) |>
-  dplyr::mutate(
-    note_about_plot  = gsub(",", " ", note_about_plot),
-    note_about_plot  = gsub("[\n\r]", " ", note_about_plot),
-    note_about_plot  = stringr::str_trim(note_about_plot, side = c("both")),
-    note_about_plant = gsub(",", " ", note_about_plant),
-    note_about_plant = gsub("[\n\r]", " ", note_about_plant),
-    note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))
+build_plots_plants <- function(
+  plots_data,
+  plants_data
+) {
+  dplyr::left_join(
+    x = plots_data |> dplyr::rename(plots_index = index),
+    y = plants_data |> dplyr::rename(plants_index = index),
+    by = c("uuid" = "submission_uuid")
   ) |>
-  dplyr::select(
-    survey_date = today,
-    plot_id,
-    id,
-    uuid,
-    plant_id,
-    note_about_plant,
-    plots_index,
-    plants_index,
-    dplyr::contains(c("width", "height"))
-  )
+    dplyr::mutate(
+      note_about_plot = gsub(",", " ", note_about_plot),
+      note_about_plot = gsub("[\n\r]", " ", note_about_plot),
+      note_about_plot = stringr::str_trim(note_about_plot, side = c("both")),
+      note_about_plant = gsub(",", " ", note_about_plant),
+      note_about_plant = gsub("[\n\r]", " ", note_about_plant),
+      note_about_plant = stringr::str_trim(note_about_plant, side = c("both"))
+    ) |>
+    dplyr::select(
+      survey_date = today,
+      plot_id,
+      id,
+      uuid,
+      plant_id,
+      note_about_plant,
+      plots_index,
+      plants_index,
+      dplyr::contains(c("width", "height"))
+    )
+}
+
+plots_plants <- build_plots_plants(
+  plots_data  = plots,
+  plants_data = plants
+)
 
 
 # STEP 3: error checking
@@ -96,17 +106,27 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #     )
 #   )
 
+# plots_plants <- build_plots_plants(
+#   plots_data  = plots,
+#   plants_data = plants
+# )
+
 # Example, here fixing data for a plant in the October 2025 so we need to go
 # back and recreate plots_plants after running this; this error was identified
 # from the complete_matrix:
 
-# plants <- plants |>
-#   dplyr::mutate(
-#     plant_id = dplyr::case_when(
-#       index == 56 ~ 'L5',
-#       TRUE ~ plant_id
-#     )
-#   )
+plants <- plants |>
+  dplyr::mutate(
+    plant_id = dplyr::case_when(
+      index == 56 ~ 'L5',
+      TRUE ~ plant_id
+    )
+  )
+
+plots_plants <- build_plots_plants(
+  plots_data  = plots,
+  plants_data = plants
+)
 
 # Generally, we will want to make a note about any data edits, particularly if
 # there is any uncertainty or subjectivity to them. In most cases, the note,

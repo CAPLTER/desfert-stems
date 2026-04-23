@@ -296,6 +296,150 @@ WHERE POSITION('missing value' IN COALESCE(urbancndep.stems.pre_note, '')) > 0;
 COMMIT;
 
 -- -----------------------------------------------------------------------------
+-- Phase 2c: Convert sentinel stem length values to NULL
+-- Rule:
+-- 1) Any stem_lengths.length_in_mm = 999 is treated as missing and set to NULL
+-- -----------------------------------------------------------------------------
+BEGIN;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2c', 'stem_lengths_999_before_nullify', COUNT(*)
+FROM urbancndep.stem_lengths
+WHERE urbancndep.stem_lengths.length_in_mm = 999;
+
+WITH nullified AS (
+  UPDATE urbancndep.stem_lengths
+  SET length_in_mm = NULL
+  WHERE urbancndep.stem_lengths.length_in_mm = 999
+  RETURNING urbancndep.stem_lengths.id
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2c', 'stem_lengths_999_rows_nullified', COUNT(*)
+FROM nullified;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2c', 'stem_lengths_999_after_nullify', COUNT(*)
+FROM urbancndep.stem_lengths
+WHERE urbancndep.stem_lengths.length_in_mm = 999;
+
+COMMIT;
+
+-- -----------------------------------------------------------------------------
+-- Phase 2d: Ensure pre-note missing-value context for flagged pre-measurement stems
+-- Rules:
+-- 1) Target stems with at least one stem_lengths row where post_measurement = FALSE
+-- 2) If pre-measurement rows have no non-NULL length and/or pre_note lacks
+--    'missing value', append/set pre_note to include 'missing value'
+-- -----------------------------------------------------------------------------
+BEGIN;
+
+WITH pre_measurement_summary AS (
+  SELECT
+    urbancndep.stems.id AS stem_id,
+    COUNT(*) FILTER (
+      WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+    ) AS pre_non_null_length_count,
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END AS has_missing_value_pre_note
+  FROM urbancndep.stems
+  JOIN urbancndep.stem_lengths
+    ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+  WHERE urbancndep.stem_lengths.post_measurement = FALSE
+  GROUP BY urbancndep.stems.id, urbancndep.stems.pre_note
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2d', 'candidate_stems_without_pre_length', COUNT(*)
+FROM pre_measurement_summary
+WHERE pre_non_null_length_count = 0;
+
+WITH pre_measurement_summary AS (
+  SELECT
+    urbancndep.stems.id AS stem_id,
+    COUNT(*) FILTER (
+      WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+    ) AS pre_non_null_length_count,
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END AS has_missing_value_pre_note
+  FROM urbancndep.stems
+  JOIN urbancndep.stem_lengths
+    ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+  WHERE urbancndep.stem_lengths.post_measurement = FALSE
+  GROUP BY urbancndep.stems.id, urbancndep.stems.pre_note
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2d', 'candidate_stems_missing_pre_note_missing_value', COUNT(*)
+FROM pre_measurement_summary
+WHERE has_missing_value_pre_note = 0;
+
+WITH pre_measurement_summary AS (
+  SELECT
+    urbancndep.stems.id AS stem_id,
+    COUNT(*) FILTER (
+      WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+    ) AS pre_non_null_length_count,
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END AS has_missing_value_pre_note
+  FROM urbancndep.stems
+  JOIN urbancndep.stem_lengths
+    ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+  WHERE urbancndep.stem_lengths.post_measurement = FALSE
+  GROUP BY urbancndep.stems.id, urbancndep.stems.pre_note
+), target_stems AS (
+  SELECT
+    pre_measurement_summary.stem_id,
+    CASE
+      WHEN pg_temp.normalize_note(urbancndep.stems.pre_note) IS NULL THEN 'missing value'
+      WHEN POSITION('missing value' IN pg_temp.normalize_note(urbancndep.stems.pre_note)) > 0 THEN pg_temp.normalize_note(urbancndep.stems.pre_note)
+      ELSE pg_temp.normalize_note(urbancndep.stems.pre_note) || '; missing value'
+    END AS new_pre_note
+  FROM pre_measurement_summary
+  JOIN urbancndep.stems
+    ON urbancndep.stems.id = pre_measurement_summary.stem_id
+  WHERE pre_measurement_summary.pre_non_null_length_count = 0
+     OR pre_measurement_summary.has_missing_value_pre_note = 0
+), updated_stems AS (
+  UPDATE urbancndep.stems
+  SET pre_note = target_stems.new_pre_note
+  FROM target_stems
+  WHERE urbancndep.stems.id = target_stems.stem_id
+    AND urbancndep.stems.pre_note IS DISTINCT FROM target_stems.new_pre_note
+  RETURNING urbancndep.stems.id
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2d', 'stems_pre_note_updated_for_pre_measurement_rule', COUNT(*)
+FROM updated_stems;
+
+WITH pre_measurement_summary AS (
+  SELECT
+    urbancndep.stems.id AS stem_id,
+    COUNT(*) FILTER (
+      WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+    ) AS pre_non_null_length_count,
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END AS has_missing_value_pre_note
+  FROM urbancndep.stems
+  JOIN urbancndep.stem_lengths
+    ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+  WHERE urbancndep.stem_lengths.post_measurement = FALSE
+  GROUP BY urbancndep.stems.id, urbancndep.stems.pre_note
+)
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_2d', 'candidate_stems_total_for_pre_measurement_rule', COUNT(*)
+FROM pre_measurement_summary
+WHERE pre_non_null_length_count = 0
+   OR has_missing_value_pre_note = 0;
+
+COMMIT;
+
+-- -----------------------------------------------------------------------------
 -- Phase 3: Backfill plant-level keys in stem_comment via stems.post_date
 -- -----------------------------------------------------------------------------
 BEGIN;
@@ -947,7 +1091,53 @@ SELECT :'migration_label', 'phase_6b', 'stem_comment_unique_index_present',
 COMMIT;
 
 -- -----------------------------------------------------------------------------
--- Phase 7: Final validation checkpoints
+-- Phase 7: Drop explicitly unused columns and emit cleanup candidates
+-- Requested hard drops:
+-- 1) stems.sample_period
+-- 2) stem_lengths.flag
+-- -----------------------------------------------------------------------------
+BEGIN;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_7', 'stems_sample_period_non_null_before_drop', COUNT(*)
+FROM urbancndep.stems
+WHERE urbancndep.stems.sample_period IS NOT NULL;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_7', 'stem_lengths_flag_non_null_before_drop', COUNT(*)
+FROM urbancndep.stem_lengths
+WHERE urbancndep.stem_lengths.flag IS NOT NULL;
+
+ALTER TABLE urbancndep.stems
+  DROP COLUMN IF EXISTS sample_period;
+
+ALTER TABLE urbancndep.stem_lengths
+  DROP COLUMN IF EXISTS flag;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_7', 'stems_sample_period_exists_after_drop',
+  CASE WHEN EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stems'
+      AND column_name = 'sample_period'
+  ) THEN 1 ELSE 0 END;
+
+INSERT INTO urbancndep.comment_migration_log (migration_label, phase, metric, metric_value)
+SELECT :'migration_label', 'phase_7', 'stem_lengths_flag_exists_after_drop',
+  CASE WHEN EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stem_lengths'
+      AND column_name = 'flag'
+  ) THEN 1 ELSE 0 END;
+
+COMMIT;
+
+-- -----------------------------------------------------------------------------
+-- Phase 8: Final validation checkpoints
 -- -----------------------------------------------------------------------------
 -- Ensure no control characters introduced by merge
 DO $$

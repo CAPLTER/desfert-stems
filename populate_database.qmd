@@ -1,6 +1,30 @@
+---
+title: "populate_database"
+format: gfm
+execute:
+  enabled: true
+---
+
 # README
 
 Workflow to upload DesFert stem-length data to the urbancndep database.
+
+# optionally source import script
+
+We will usually run kobo_workflow.R interactively to explore the data and
+identify problems but we can source it if all the bugs have been worked out.
+
+```{r}
+#| eval: true
+
+source("kobo_workflow.R")
+# source("/tmp/kobo_workflow.R")
+source("/tmp/connect.R")
+
+```
+
+
+# load helper functions
 
 ```{r}
 #| eval: true
@@ -13,7 +37,7 @@ source("helper_safe_transaction.R")
 ```
 
 
-# temporary schema -------------------------------------------------------------
+# build temporary schema
 
 ```{r}
 #| eval: true
@@ -24,7 +48,7 @@ DBI::dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
 ```
 
 
-# add raw data to temp postgres tables -----------------------------------------
+# add raw data to temp postgres tables
 
 ```{r}
 #| eval: true
@@ -38,7 +62,7 @@ purrr::walk(
 ```
 
 
-# data manipulation (SQL) -----------------------------------------------------
+# stems workflow
 
 run SQL run sequentially!
 
@@ -66,7 +90,7 @@ DBI::dbExecute(
 ```
 
 
-# add stem_id generated from update of old stems to plots_plants (a later step)
+## add stem_id generated from update of old stems to plots_plants (a later step)
 
 ```{r}
 #| eval: true
@@ -89,7 +113,7 @@ safe_transaction(
 ```
 
 
-# update existing pg.stems with this survey's post date & notes
+## update existing pg.stems with this survey's post date & notes
 
 Be certain to set month & year to the correct pre date, which should be the most
 recent set (may include multiple months).
@@ -142,8 +166,8 @@ message("pre_date_year: ", pre_date_year)
 ```
 
 to address manually, change the last two lines of update_post_query to:
-EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
-EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
+> EXTRACT(MONTH from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_MONTH__ AND
+> EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
 
 ```{r}
 #| eval: true
@@ -164,6 +188,49 @@ update_post_query <- glue::glue_sql("
   .con = DBI::ANSI()
 )
 
+update_post_expected <- DBI::dbGetQuery(
+  conn = pg,
+  statement = glue::glue_sql("
+    SELECT DISTINCT
+      urbancndep.stems.id AS stem_id
+    FROM urbancndep.stems
+    JOIN stems_temp.plots_plants
+      ON stems_temp.plots_plants.shrub_id = urbancndep.stems.shrub_id
+     AND stems_temp.plots_plants.direction = urbancndep.stems.direction
+    WHERE
+      EXTRACT(MONTH FROM urbancndep.stems.pre_date) IN ({ pre_date_month* })
+      AND EXTRACT(YEAR FROM urbancndep.stems.pre_date) = { pre_date_year }
+    ;
+  ", .con = DBI::ANSI())
+)
+
+message(
+  "expected stems rows for post update: ",
+  nrow(update_post_expected)
+)
+
+update_post_duplicates <- DBI::dbGetQuery(
+  conn = pg,
+  statement = "
+    SELECT
+      shrub_id,
+      direction,
+      survey_date,
+      COUNT(*) AS duplicate_rows
+    FROM stems_temp.plots_plants
+    GROUP BY shrub_id, direction, survey_date
+    HAVING COUNT(*) > 1
+    ORDER BY duplicate_rows DESC, shrub_id, direction, survey_date
+  ;"
+)
+
+if (nrow(update_post_duplicates) > 0) {
+  print(utils::head(update_post_duplicates, 20))
+  stop(
+    "duplicate shrub_id+direction+survey_date rows found in stems_temp.plots_plants; resolve staging duplicates before update_post_query"
+  )
+}
+
 safe_transaction(
   action     = update_post_query,
   ref_object = plots_plants
@@ -171,7 +238,7 @@ safe_transaction(
 
 ```
 
-# insert pre data into pg.stems
+## insert pre data into pg.stems
 
 ```{r}
 #| eval: true
@@ -201,7 +268,7 @@ safe_transaction(
 ```
 
 
-# add stem_id generated from insert of new stems to plots_plants
+## add stem_id generated from insert of new stems to plots_plants
 
 note the use of `urbancndep.stems.pre_date` in this query
 
@@ -226,7 +293,7 @@ safe_transaction(
 
 ```
 
-# add stem_id generated from update of old stems to plots_plants
+## add stem_id generated from update of old stems to plots_plants
 
 ```{r}
 #| eval: true
@@ -250,7 +317,7 @@ safe_transaction(
 ```
 
 
-# prep for and add stem_id generated from update of stems to old;
+## prep for and add stem_id generated from update of stems to old;
 
 ```{r}
 #| eval: true
@@ -289,7 +356,7 @@ safe_transaction(
 
 ```
 
-# add boolean TRUE to denote post measurement
+## add boolean TRUE to denote post measurement
 
 ```{r}
 #| eval: true
@@ -305,7 +372,7 @@ DBI::dbExecute(
 ```
 
 
-# insert old lengths into pg.stem_lengths
+## insert old lengths into pg.stem_lengths
 
 ```{r}
 #| eval: true
@@ -335,8 +402,7 @@ safe_transaction(
 
 ```
 
-# prep for and add stem_id generated from insert of stems to new;
-# prep boolean FALSE to denote post measurement (later step)
+## prep for adding stem_id generated from insert of stems to new
 
 ```{r}
 #| eval: true
@@ -353,6 +419,7 @@ DBI::dbExecute(
 
 ```
 
+## add stem_id generated from insert of stems to new
 
 ```{r}
 #| eval: true
@@ -375,6 +442,7 @@ safe_transaction(
 
 ```
 
+## prep boolean FALSE to denote post measurement (later step)
 
 ```{r}
 #| eval: true
@@ -390,8 +458,7 @@ DBI::dbExecute(
 
 ```
 
-
-# insert new lengths into pg.stem_lengths
+## insert new lengths into pg.stem_lengths
 
 ```{r}
 #| eval: true
@@ -422,9 +489,10 @@ safe_transaction(
 ```
 
 
-# insert any notes about plants into stem_comment using plant-level keys
-# (shrub_id, survey_date). Values are deduplicated per key when the same note
-# appears in multiple directional rows.
+## insert any notes about plants into stem_comment
+
+Uses plant-level keys (shrub_id, survey_date). Values are deduplicated per key
+when the same note appears in multiple directional rows.
 
 ```{r}
 #| eval: true
@@ -467,30 +535,10 @@ DBI::dbWithTransaction(
     )
   }
 )
-```
-
-
-# identify plot notes that will be rejected before insert
-
-```{r}
-#| eval: true
-
-DBI::dbGetQuery(
-  conn = pg,
-  statement = "
-  SELECT
-    COUNT(*) AS rejected_plot_note_rows
-  FROM stems_temp.plot_notes
-  WHERE survey_date IS NULL
-     OR NULLIF(BTRIM(plot_notes), '') IS NULL
-  ;
-  "
-)
 
 ```
 
-
-# add plot notes (new as of 2018-10-22)
+## add plot notes (new as of 2018-10-22)
 
 ```{r}
 #| eval: true
@@ -521,10 +569,11 @@ DBI::dbWithTransaction(
     )
   }
 )
-```
-          
 
-# address missing NULL values ---------------------------------------------
+```
+
+
+## address missing NULL values
 
 WHILE THE WORKFLOW TO ADDRESS MISSING NEW VALUES WAS IMPROVED WITH THE FALL 2022
 WORKFLOW, THERE WERE NOT ANY NULL VALUES ASSOCIATED WITH THAT COLLECTION SO
@@ -589,7 +638,7 @@ new_null <- function() {
 new_null()
 ```
 
-# address missing NEW values ----------------------------------------------
+## address missing NEW values
 
 identify and document missing new stems data
 
@@ -608,66 +657,10 @@ purrr::pwalk(
   .l = new_stems_missing,
   .f = ~ annotate_new_missing(plot_id = ..4, plant_id = ..1, direction = ..2)
 )
+
 ```
 
-
-# post-processing error checking -----------------------------------------------
-
-```{r}
-#| eval: true
-
-years <- c(
-  lubridate::year(Sys.Date()) - 2,
-  lubridate::year(Sys.Date()) - 1,
-  lubridate::year(Sys.Date())
-)
-
-query_recent <- glue::glue_sql("
-  SELECT
-    s.code AS site_code,
-    p.id AS plot_id,
-    t.code AS treatment_code,
-    sp.scientific_name,
-    sh.code AS shrub_code,
-    sh.note AS shrub_note,
-    st.id,
-    st.direction,
-    st.pre_date,
-    st.pre_note,
-    st.post_date,
-    st.post_note,
-    sl.post_measurement,
-    sl.length_in_mm as stem_length,
-    sc.comment
-  FROM urbancndep.stems st
-  JOIN urbancndep.shrubs sh ON sh.id = st.shrub_id
-  JOIN urbancndep.plots p ON sh.plot_id = p.id
-  JOIN urbancndep.sites s ON p.site_id = s.id
-  JOIN urbancndep.treatments t ON p.treatment_id = t.id
-  JOIN urbancndep.shrub_species sp ON sh.shrub_species_id = sp.id
-  LEFT JOIN urbancndep.stem_lengths sl ON st.id = sl.stem_id
-  LEFT JOIN urbancndep.stem_comment sc ON (sc.stem_id = st.id AND sl.post_measurement = sc.post_measurement)
-  WHERE
-    EXTRACT (YEAR FROM st.pre_date) IN ({ years* })
-  ORDER BY
-    sl.post_measurement,
-    p.id,
-    st.pre_date,
-    sh.code,
-    st.direction
-  ;
-  ",
-  .con = DBI::ANSI()
-)
-
-recent_data <- DBI::dbGetQuery(
-  conn      = pg,
-  statement = query_recent
-)
-```
-
-
-# shrub dimensions -------------------------------------------------------------
+# shrub dimensions
 
 ```{r}
 #| eval: true
@@ -732,9 +725,67 @@ DBI::dbWithTransaction(
     )
   }
 )
+
 ```
 
-# check shrub dimensions data
+# error checking
+
+## data spot check
+
+```{r}
+#| eval: true
+
+years <- c(
+  lubridate::year(Sys.Date()) - 2,
+  lubridate::year(Sys.Date()) - 1,
+  lubridate::year(Sys.Date())
+)
+
+query_recent <- glue::glue_sql("
+  SELECT
+    s.code AS site_code,
+    p.id AS plot_id,
+    t.code AS treatment_code,
+    sp.scientific_name,
+    sh.code AS shrub_code,
+    sh.note AS shrub_note,
+    st.id,
+    st.direction,
+    st.pre_date,
+    st.pre_note,
+    st.post_date,
+    st.post_note,
+    sl.post_measurement,
+    sl.length_in_mm as stem_length,
+    sc.comment
+  FROM urbancndep.stems st
+  JOIN urbancndep.shrubs sh ON sh.id = st.shrub_id
+  JOIN urbancndep.plots p ON sh.plot_id = p.id
+  JOIN urbancndep.sites s ON p.site_id = s.id
+  JOIN urbancndep.treatments t ON p.treatment_id = t.id
+  JOIN urbancndep.shrub_species sp ON sh.shrub_species_id = sp.id
+  LEFT JOIN urbancndep.stem_lengths sl ON st.id = sl.stem_id
+  LEFT JOIN urbancndep.stem_comment sc ON (sc.stem_id = st.id AND sl.post_measurement = sc.post_measurement)
+  WHERE
+    EXTRACT (YEAR FROM st.pre_date) IN ({ years* })
+  ORDER BY
+    sl.post_measurement,
+    p.id,
+    st.pre_date,
+    sh.code,
+    st.direction
+  ;
+  ",
+  .con = DBI::ANSI()
+)
+
+recent_data <- DBI::dbGetQuery(
+  conn      = pg,
+  statement = query_recent
+)
+```
+
+## check shrub dimensions data
 
 ```{r}
 #| eval: true
@@ -768,7 +819,8 @@ recent_measurements <- DBI::dbGetQuery(
 )
 ```
 
-# CLEAN UP ---------------------------------------------------------------------
+
+# CLEAN UP
 
 ```{r}
 #| eval: true

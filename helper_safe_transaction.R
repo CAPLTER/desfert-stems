@@ -36,7 +36,7 @@ safe_transaction <- function(
   } else {
 
     DBI::dbRollback(conn = db_connection)
-    message("numer of rows affected does not match object; rolling back")
+    message("number of rows affected does not match object; rolling back")
 
   }
 

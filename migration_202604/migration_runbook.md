@@ -17,11 +17,15 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 5. Restrict source notes to:
 - `shrub_measurements.survey_date >= DATE '2022-05-13'`
 6. Fix text cleaning to avoid tokenization/splitting corruption.
+7. Drop explicitly unused columns in this release:
+- `stems.sample_period`
+- `stem_lengths.flag`
+8. Generate a post-migration inventory of superfluous fields/objects to schedule for later cleanup after sign-off.
+9. Convert sentinel stem length value `999` in `stem_lengths.length_in_mm` to `NULL`.
 
 ## Out of Scope
 1. Dropping legacy `stem_comment` columns in this run.
-2. Enforcing uniqueness on `(shrub_id, survey_date)` in this run.
-3. Reconstructing already-corrupted historical comments beyond safe normalization.
+2. Reconstructing already-corrupted historical comments beyond safe normalization.
 
 ## Preconditions
 1. ETL is paused.
@@ -86,6 +90,21 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 1. 0 control-char artifacts.
 2. 0 tokenization artifacts introduced by migration logic.
 
+## Phase 2c: Stem Length Sentinel Cleanup
+1. Count rows where `stem_lengths.length_in_mm = 999`.
+2. Update all `length_in_mm = 999` rows to `NULL`.
+3. Confirm zero rows remain with value `999`.
+
+### SQL Checkpoints
+1. Before/after sentinel counts are logged.
+2. `length_in_mm = 999` count is 0 after update.
+
+### Rollback Criteria
+1. Any DML failure in sentinel conversion step.
+
+### Acceptance Thresholds
+1. 0 rows with `stem_lengths.length_in_mm = 999`.
+
 ## Phase 3: Backfill Plant Keys in stem_comment
 1. Populate `stem_comment.shrub_id` from `stems.shrub_id` where possible.
 2. Populate `stem_comment.survey_date` from `stems.post_date` where possible.
@@ -145,13 +164,43 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 1. Manual QA pass on representative samples.
 2. No blocking regressions in current ETL.
 
+## Phase 6: Remove Explicitly Unused Columns
+1. Capture non-null baseline counts for `stems.sample_period` and `stem_lengths.flag` before dropping.
+2. Drop `stems.sample_period`.
+3. Drop `stem_lengths.flag`.
+4. Log post-DDL existence checks proving both columns are absent.
+
+### SQL Checkpoints
+1. Both drops execute without dependency failures.
+2. Catalog confirms both columns no longer exist.
+
+### Rollback Criteria
+1. Any DDL failure or unexpected dependency block.
+
+### Acceptance Thresholds
+1. 0 remaining definitions for dropped columns in catalog checks.
+
+## Phase 7: Superfluous-Field Inventory (Recommendation Only)
+1. Emit a structured candidate list from verification SQL.
+2. Include transitional legacy columns still present for compatibility.
+3. Include migration artifact tables that can be removed or archived later.
+4. Assign an action category per candidate: `defer`, `drop_after_signoff`, or `drop_or_archive_after_reporting`.
+
+### SQL Checkpoints
+1. Candidate inventory query runs and returns current presence/absence state.
+2. Recommended actions are explicit for each candidate.
+
+### Rollback Criteria
+1. Not applicable (read-only reporting phase).
+
+### Acceptance Thresholds
+1. Candidate inventory reviewed and recorded for next cleanup migration.
+
 ## Transitional Policy (One Cycle)
 1. `stem_id` and `post_measurement` remain, but are deprecated.
 2. New writes should prefer `(shrub_id, survey_date, comment)`.
-3. A future hardening release can:
-- enforce `NOT NULL` on `shrub_id`, `survey_date`
-- decide on uniqueness policy
-- drop legacy columns
+3. The explicit drops in this release are limited to `stems.sample_period` and `stem_lengths.flag`.
+4. A future cleanup release can drop transitional legacy columns after sign-off.
 
 ## Deliverables
 1. Executable SQL migration script.
@@ -160,6 +209,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 - rows appended
 - rows inserted
 - rows audited by reason
+3. Verification output proving `stems.sample_period` and `stem_lengths.flag` are absent.
+4. Superfluous-field candidate inventory with recommended cleanup actions.
 
 ## Relevant Files
 - `urbancndep_comment_migration.sql`

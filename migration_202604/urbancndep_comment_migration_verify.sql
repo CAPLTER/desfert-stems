@@ -62,6 +62,24 @@ SELECT
   ) THEN 'PASS' ELSE 'FAIL' END AS status;
 
 SELECT
+  'stems_sample_period_dropped' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stems'
+      AND column_name = 'sample_period'
+  ) THEN 'FAIL' ELSE 'PASS' END AS status;
+
+SELECT
+  'stem_lengths_flag_dropped' AS check_name,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'urbancndep'
+      AND table_name = 'stem_lengths'
+      AND column_name = 'flag'
+  ) THEN 'FAIL' ELSE 'PASS' END AS status;
+
+SELECT
   'stem_comment_shrub_id_not_null_constraint' AS check_name,
   CASE WHEN EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -137,6 +155,198 @@ BEGIN
   END IF;
 END;
 $$;
+
+DO $$
+DECLARE
+  v_rows_999 bigint := NULL;
+  v_status text := 'FAIL';
+BEGIN
+  IF to_regclass('urbancndep.stem_lengths') IS NULL THEN
+    RAISE NOTICE 'stem_lengths_sentinel_999_rows: SKIP (table urbancndep.stem_lengths does not exist)';
+  ELSE
+    EXECUTE $sql$
+      SELECT COUNT(*)
+      FROM urbancndep.stem_lengths
+      WHERE length_in_mm = 999
+    $sql$
+    INTO v_rows_999;
+
+    IF v_rows_999 = 0 THEN
+      v_status := 'PASS';
+    END IF;
+
+    RAISE NOTICE 'stem_lengths_sentinel_999_rows: rows=%, status=%',
+      v_rows_999, v_status;
+  END IF;
+END;
+$$;
+
+\echo '=== 3) Pre-measurement completeness rule checks ==='
+DO $$
+DECLARE
+  v_violation_groups bigint := NULL;
+  v_status text := 'FAIL';
+BEGIN
+  IF to_regclass('urbancndep.stems') IS NULL
+     OR to_regclass('urbancndep.stem_lengths') IS NULL
+     OR to_regclass('urbancndep.shrubs') IS NULL
+     OR to_regclass('urbancndep.plots') IS NULL THEN
+    RAISE NOTICE 'pre_measurement_completeness_rule: SKIP (required table missing)';
+  ELSE
+    EXECUTE $sql$
+      SELECT COUNT(*)
+      FROM (
+        SELECT
+          plots.id,
+          shrubs.code,
+          stems.pre_date,
+          stems.direction
+        FROM urbancndep.stems
+        JOIN urbancndep.shrubs
+          ON urbancndep.shrubs.id = urbancndep.stems.shrub_id
+        JOIN urbancndep.plots
+          ON urbancndep.plots.id = urbancndep.shrubs.plot_id
+        JOIN urbancndep.stem_lengths
+          ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+        WHERE urbancndep.stem_lengths.post_measurement = FALSE
+        GROUP BY
+          urbancndep.plots.id,
+          urbancndep.shrubs.code,
+          urbancndep.stems.pre_date,
+          urbancndep.stems.direction
+        HAVING COUNT(*) FILTER (
+          WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+        ) = 0
+          AND MAX(
+            CASE
+              WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+              ELSE 0
+            END
+          ) = 0
+      ) rule_violations
+    $sql$
+    INTO v_violation_groups;
+
+    IF v_violation_groups = 0 THEN
+      v_status := 'PASS';
+    END IF;
+
+    RAISE NOTICE 'pre_measurement_completeness_rule: violation_groups=%, status=%',
+      v_violation_groups, v_status;
+  END IF;
+END;
+$$;
+
+SELECT
+  urbancndep.plots.id AS plot_id,
+  urbancndep.shrubs.code AS shrub_code,
+  urbancndep.stems.pre_date,
+  urbancndep.stems.direction,
+  COUNT(*) FILTER (
+    WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+  ) AS non_null_pre_length_count,
+  MAX(
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END
+  ) AS has_missing_value_pre_note
+FROM urbancndep.stems
+JOIN urbancndep.shrubs
+  ON urbancndep.shrubs.id = urbancndep.stems.shrub_id
+JOIN urbancndep.plots
+  ON urbancndep.plots.id = urbancndep.shrubs.plot_id
+JOIN urbancndep.stem_lengths
+  ON urbancndep.stem_lengths.stem_id = urbancndep.stems.id
+WHERE urbancndep.stem_lengths.post_measurement = FALSE
+GROUP BY
+  urbancndep.plots.id,
+  urbancndep.shrubs.code,
+  urbancndep.stems.pre_date,
+  urbancndep.stems.direction
+HAVING COUNT(*) FILTER (
+  WHERE urbancndep.stem_lengths.length_in_mm IS NOT NULL
+) = 0
+  AND MAX(
+    CASE
+      WHEN POSITION('missing value' IN LOWER(COALESCE(urbancndep.stems.pre_note, ''))) > 0 THEN 1
+      ELSE 0
+    END
+  ) = 0
+ORDER BY
+  urbancndep.plots.id,
+  urbancndep.shrubs.code,
+  urbancndep.stems.pre_date,
+  urbancndep.stems.direction;
+
+\echo '=== 7) Superfluous-field candidate inventory ==='
+SELECT
+  candidate.table_name,
+  candidate.column_name,
+  candidate.candidate_group,
+  candidate.rationale,
+  CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM information_schema.columns ic
+      WHERE ic.table_schema = 'urbancndep'
+        AND ic.table_name = candidate.table_name
+        AND ic.column_name = candidate.column_name
+    ) THEN 'present'
+    ELSE 'absent'
+  END AS current_state,
+  candidate.recommended_action
+FROM (
+  SELECT
+    'stem_comment'::text AS table_name,
+    'stem_id'::text AS column_name,
+    'transitional_legacy'::text AS candidate_group,
+    'Legacy key retained for compatibility during plant-level comment transition.'::text AS rationale,
+    'defer_drop_until_post_transition_signoff'::text AS recommended_action
+  UNION ALL
+  SELECT
+    'stem_comment',
+    'post_measurement',
+    'transitional_legacy',
+    'Legacy pre/post marker retained for compatibility during plant-level comment transition.',
+    'defer_drop_until_post_transition_signoff'
+) candidate
+ORDER BY candidate.candidate_group, candidate.table_name, candidate.column_name;
+
+SELECT
+  cleanup_object.schema_name,
+  cleanup_object.object_name,
+  cleanup_object.object_type,
+  cleanup_object.rationale,
+  cleanup_object.recommended_action,
+  CASE
+    WHEN cleanup_object.object_type = 'table' AND to_regclass(cleanup_object.schema_name || '.' || cleanup_object.object_name) IS NOT NULL THEN 'present'
+    WHEN cleanup_object.object_type = 'table' THEN 'absent'
+    ELSE 'n/a'
+  END AS current_state
+FROM (
+  SELECT
+    'urbancndep'::text AS schema_name,
+    'stem_comment_redesign_audit'::text AS object_name,
+    'table'::text AS object_type,
+    'Migration audit artifact table.'::text AS rationale,
+    'drop_after_post_migration_audit_signoff'::text AS recommended_action
+  UNION ALL
+  SELECT
+    'urbancndep',
+    'stem_plot_notes_reject_audit',
+    'table',
+    'Migration reject-audit artifact table.',
+    'drop_after_post_migration_audit_signoff'
+  UNION ALL
+  SELECT
+    'urbancndep',
+    'comment_migration_log',
+    'table',
+    'Migration metrics artifact table.',
+    'drop_or_archive_after_post_migration_reporting'
+) cleanup_object
+ORDER BY cleanup_object.object_type, cleanup_object.object_name;
 
 DO $$
 DECLARE
