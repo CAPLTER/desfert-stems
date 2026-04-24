@@ -17,9 +17,9 @@ identify problems but we can source it if all the bugs have been worked out.
 ```{r}
 #| eval: true
 
-source("kobo_workflow.R")
-# source("/tmp/kobo_workflow.R")
-source("/tmp/connect.R")
+source("kobo_workflow.R") # fall
+# source("/tmp/kobo_workflow.R") # spring (edited to avoid sourcing the fall workflow)
+source("~/Documents/localSettings/pg_local.R")
 
 ```
 

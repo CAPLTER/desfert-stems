@@ -1,3 +1,5 @@
+-- plant comment ~ post_date + post_measurement = TRUE
+
 \copy (
 WITH stem_rows AS (
   SELECT
@@ -8,16 +10,24 @@ WITH stem_rows AS (
     stems.post_date,
     stems.pre_note,
     stems.post_note,
-    stem_lengths.post_measurement,
-    stem_lengths.length_in_mm,
-    CASE
-      WHEN stem_lengths.post_measurement IS TRUE THEN stems.post_date
-      WHEN stem_lengths.post_measurement IS FALSE THEN stems.pre_date
-      ELSE NULL
-    END AS measurement_date
+    ctx.is_post AS post_measurement,
+    sl.length_in_mm,
+    CASE ctx.is_post
+      WHEN TRUE THEN stems.post_date
+      WHEN FALSE THEN stems.pre_date
+    END AS measurement_date,
+    CASE ctx.is_post
+      WHEN TRUE THEN stems.post_note
+      WHEN FALSE THEN stems.pre_note
+    END AS measurement_note
   FROM urbancndep.stems
-  LEFT JOIN urbancndep.stem_lengths
-    ON stem_lengths.stem_id = stems.id
+  CROSS JOIN LATERAL (VALUES (FALSE), (TRUE)) AS ctx(is_post)
+  LEFT JOIN urbancndep.stem_lengths sl
+    ON sl.stem_id = stems.id
+   AND sl.post_measurement = ctx.is_post
+  WHERE
+    ctx.is_post = FALSE
+    OR stems.post_date IS NOT NULL
 ),
 aggregated_plot_notes AS (
   SELECT
@@ -42,8 +52,9 @@ SELECT
   stem_rows.post_note,
   stem_rows.post_measurement,
   stem_rows.measurement_date,
+  stem_rows.measurement_note,
   stem_rows.length_in_mm AS stem_length,
-  stem_comment.comment AS stem_comment,
+  stem_comment.comment AS plant_comment,
   aggregated_plot_notes.plot_comment
 FROM stem_rows
 JOIN urbancndep.shrubs
@@ -76,4 +87,4 @@ ORDER BY
   stem_rows.post_measurement,
   shrubs.code,
   stem_rows.direction
-  ) TO '/tmp/stems_out_new_999.csv' WITH CSV HEADER;
+  ) TO '/tmp/stems_out_new.csv' WITH CSV HEADER;
