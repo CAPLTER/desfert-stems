@@ -1,6 +1,9 @@
 ## Plan: Stem Comment Plant-Level Redesign Runbook
 
-This runbook implements a structural redesign of the `urbancndep.stem_comment` workflow so comments are managed at the plant level (`shrub_id`, `survey_date`) rather than stem level. It also corrects the migration direction and date-anchor issues discovered during prior execution.
+This runbook implements a structural redesign of the `urbancndep.stem_comment`
+workflow so comments are managed at the plant level (`shrub_id`, `survey_date`)
+rather than stem level. It also corrects the migration direction and date-anchor
+issues discovered during prior execution.
 
 ## Scope
 1. Evolve `stem_comment` in place by adding plant-level key columns:
@@ -20,12 +23,15 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 7. Drop explicitly unused columns in this release:
 - `stems.sample_period`
 - `stem_lengths.flag`
-8. Generate a post-migration inventory of superfluous fields/objects to schedule for later cleanup after sign-off.
-9. Convert sentinel stem length value `999` in `stem_lengths.length_in_mm` to `NULL`.
+8. Generate a post-migration inventory of superfluous fields/objects to schedule
+for later cleanup after sign-off.
+9. Convert sentinel stem length value `999` in `stem_lengths.length_in_mm` to
+`NULL`.
 
 ## Out of Scope
 1. Dropping legacy `stem_comment` columns in this run.
-2. Reconstructing already-corrupted historical comments beyond safe normalization.
+2. Reconstructing already-corrupted historical comments beyond safe
+normalization.
 
 ## Preconditions
 1. ETL is paused.
@@ -149,7 +155,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 
 ## Phase 5: Post-Migration Validation
 1. Validate comment integrity on sampled rows.
-2. Specifically verify punctuation-bearing strings (example pattern like `Normal. Tall.`) remain semantically intact.
+2. Specifically verify punctuation-bearing strings (example pattern like
+`Normal. Tall.`) remain semantically intact.
 3. Verify new columns are populated on migrated/inserted records.
 4. Verify legacy writers still function during transition (if still used).
 
@@ -165,7 +172,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 2. No blocking regressions in current ETL.
 
 ## Phase 6: Remove Explicitly Unused Columns
-1. Capture non-null baseline counts for `stems.sample_period` and `stem_lengths.flag` before dropping.
+1. Capture non-null baseline counts for `stems.sample_period` and
+`stem_lengths.flag` before dropping.
 2. Drop `stems.sample_period`.
 3. Drop `stem_lengths.flag`.
 4. Log post-DDL existence checks proving both columns are absent.
@@ -184,7 +192,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 1. Emit a structured candidate list from verification SQL.
 2. Include transitional legacy columns still present for compatibility.
 3. Include migration artifact tables that can be removed or archived later.
-4. Assign an action category per candidate: `defer`, `drop_after_signoff`, or `drop_or_archive_after_reporting`.
+4. Assign an action category per candidate: `defer`, `drop_after_signoff`, or
+`drop_or_archive_after_reporting`.
 
 ### SQL Checkpoints
 1. Candidate inventory query runs and returns current presence/absence state.
@@ -199,7 +208,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 ## Transitional Policy (One Cycle)
 1. `stem_id` and `post_measurement` remain, but are deprecated.
 2. New writes should prefer `(shrub_id, survey_date, comment)`.
-3. The explicit drops in this release are limited to `stems.sample_period` and `stem_lengths.flag`.
+3. The explicit drops in this release are limited to `stems.sample_period` and
+`stem_lengths.flag`.
 4. A future cleanup release can drop transitional legacy columns after sign-off.
 
 ## Deliverables
@@ -209,7 +219,8 @@ This runbook implements a structural redesign of the `urbancndep.stem_comment` w
 - rows appended
 - rows inserted
 - rows audited by reason
-3. Verification output proving `stems.sample_period` and `stem_lengths.flag` are absent.
+3. Verification output proving `stems.sample_period` and `stem_lengths.flag` are
+absent.
 4. Superfluous-field candidate inventory with recommended cleanup actions.
 
 ## Relevant Files
