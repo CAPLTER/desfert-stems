@@ -66,7 +66,8 @@ plots_plants |>
 check_kobo_key_uniqueness(
   plots_plants_data = plots_plants,
   keys              = c("survey_date", "plot_id", "plant_id"),
-  check_name        = "pre-direction plots_plants"
+  check_name        = "pre-direction plots_plants",
+  stop_on_error     = FALSE
 )
 
 ## evaluate a matrix that encompasses all combinations of plots and plants that
@@ -101,13 +102,13 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #   )
 
 
-# Depending on the correction, we will want to make a note about any data edits, particularly if
-# there is any uncertainty or subjectivity to them. In most cases, the note,
-# even if at the plot level, should be addressed at the plant level so that the
-# information is starkly visible to a user assessing length data. Continuing
-# with the above example, where we are altering the identity of a plot (1 to 5
-# in this case), we need to associate the change to all plots in the numbers 1
-# and 5 plots.
+# Depending on the correction, we will want to make a note about any data edits,
+# particularly if there is any uncertainty or subjectivity to them. In most
+# cases, the note, even if at the plot level, should be addressed at the plant
+# level so that the information is starkly visible to a user assessing length
+# data. Continuing with the above example, where we are altering the identity of
+# a plot (1 to 5 in this case), we need to associate the change to all plots in
+# the numbers 1 and 5 plots.
 
 # plots_1_5 <- c(
 #   "0a467ea9-c373-4803-8316-cbe01d62e020",
@@ -153,7 +154,8 @@ plots_plants <- build_plots_plants(
 check_kobo_key_uniqueness(
   plots_plants_data = plots_plants,
   keys              = c("survey_date", "plot_id", "plant_id"),
-  check_name        = "post-fix pre-direction plots_plants"
+  check_name        = "post-fix pre-direction plots_plants",
+  stop_on_error     = FALSE
 )
 
 
@@ -207,7 +209,7 @@ new <- dplyr::left_join(
 
 # However, below is an example where we need to remove duplicate, ambiguous
 # plants and stems from plots_plants, in which case fixes are applied to
-# plots_plants and old; plots_plants is not rebuilt.
+# plots_plants and old; plots_plants is NOT rebuilt.
 
 ambiguous_plants_index <- c(31, 133)
 
@@ -220,14 +222,19 @@ old <- old |>
 
 # STEP 6: shrub dimensions
 
-# isolate shrub dimension data before adding cardinal directions in the next step
+# isolate shrub dimension data before adding cardinal directions in the next
+# step
 
 # the spring 2022 (inaugural) collection interspersed measurements in units of
 # cm and m; those are standardized in this workflow but the app will be updated
 # to prevent this in the future so this should not be needed doing forward
 
 shrub_dimensions <- plots_plants |>
-  dplyr::filter(complete.cases(dplyr::across(contains(c("width", "height"))))) |>
+  dplyr::filter(
+    complete.cases(
+      dplyr::across(contains(c("width", "height")))
+    )
+  ) |>
   dplyr::rename(
     n_s = width_of_plant_at_widest_point_n_s,
     e_w = width_of_plant_at_widest_point_e_w,
@@ -251,6 +258,7 @@ shrub_dimensions <- plots_plants |>
 # STEP 7
 
 # add directions to plots_plants
+# run a final uniqueness check that will stop execution
 
 directions_frame <- tibble::tibble(
   direction = c("North", "South", "West", "East")
@@ -260,10 +268,6 @@ plots_plants <- plots_plants |>
   merge(directions_frame, all = TRUE) |>
   dplyr::mutate(
     survey_date = as.Date(survey_date)
-    # survey_date = dplyr::case_when(
-    #   is.na(survey_date) & !is.na(today) ~ today,
-    #   TRUE ~ survey_date
-    # )
   ) |>
   dplyr::select(
     survey_date,
@@ -275,15 +279,13 @@ plots_plants <- plots_plants |>
     plots_index,
     plants_index,
     direction
-  ) |>
-  assertr::assert(
-    assertr::not_na, c(survey_date, plant_id, direction)
   )
 
 check_kobo_key_uniqueness(
   plots_plants_data = plots_plants,
   keys              = c("survey_date", "plot_id", "plant_id", "direction"),
-  check_name        = "direction-expanded plots_plants"
+  check_name        = "direction-expanded plots_plants",
+  stop_on_error     = TRUE
 )
 
 
@@ -291,7 +293,13 @@ check_kobo_key_uniqueness(
 
 directions_vector <- c("North", "South", "West", "East")
 
-post_note <- purrr::map_df(.x = directions_vector, ~ coalesce_old_notes(source_data = plants, cardinal_direction = .x))
+post_note <- purrr::map_df(
+  .x = directions_vector,
+  .f = ~ coalesce_old_notes(
+    source_data = plants,
+    cardinal_direction = .x
+  )
+)
 
 plots_plants <- plots_plants |>
   dplyr::left_join(
@@ -312,3 +320,5 @@ plot_notes <- plots |>
     survey_date = date,
     plot_notes  = note_about_plot
   )
+
+print("completed kobo_workflow.R")

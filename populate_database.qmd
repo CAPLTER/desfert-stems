@@ -15,11 +15,19 @@ We will usually run kobo_workflow.R interactively to explore the data and
 identify problems but we can source it if all the bugs have been worked out.
 
 ```{r}
+#| label: database connection
 #| eval: true
 
-source("kobo_workflow.R") # fall
-# source("/tmp/kobo_workflow.R") # spring (edited to avoid sourcing the fall workflow)
 source("~/Documents/localSettings/pg_local.R")
+
+```
+
+```{r}
+#| label: source kobo workflow
+#| eval: true
+
+source("kobo_workflow.R")
+# source("/tmp/kobo_workflow.R")
 
 ```
 
@@ -27,6 +35,7 @@ source("~/Documents/localSettings/pg_local.R")
 # load helper functions
 
 ```{r}
+#| label: load helper functions
 #| eval: true
 
 source("helper_load_table.R")
@@ -40,6 +49,7 @@ source("helper_safe_transaction.R")
 # build temporary schema
 
 ```{r}
+#| label: build temporary schema
 #| eval: true
 
 DBI::dbExecute(pg, "DROP SCHEMA IF EXISTS stems_temp CASCADE ;")
@@ -51,6 +61,7 @@ DBI::dbExecute(pg, "CREATE SCHEMA IF NOT EXISTS stems_temp ;")
 # add raw data to temp postgres tables
 
 ```{r}
+#| label: add raw data to temp postgres tables
 #| eval: true
 
 data_tables <- c("new", "old", "plots_plants", "plot_notes", "shrub_dimensions")
@@ -73,6 +84,7 @@ alter stems_temp.plots_plants as appropriate
 - prep for and add stem_id generated from insert of new stems to plots_plants (a later step)
 
 ```{r}
+#| label: alter stems_temp.plots_plants
 #| eval: true
 
 DBI::dbExecute(
@@ -93,6 +105,7 @@ DBI::dbExecute(
 ## add stem_id generated from update of old stems to plots_plants (a later step)
 
 ```{r}
+#| label: update plots_plants with shrub_id
 #| eval: true
 
 update_plots_plants <- "
@@ -125,6 +138,7 @@ multiple months, which is rare but has happened, you either need to update the
 query or pass those values manually.
 
 ```{r}
+#| label: get most recent pre_date month and year
 #| eval: true
 
 recent_pre_date <- DBI::dbGetQuery(
@@ -170,6 +184,7 @@ to address manually, change the last two lines of update_post_query to:
 > EXTRACT(YEAR from urbancndep.stems.pre_date) = __SET_PREVIOUS_PERIOD_YEAR;") # set appropriately !
 
 ```{r}
+#| label: update urbancndep.stems with post date and notes
 #| eval: true
 
 update_post_query <- glue::glue_sql("
@@ -241,6 +256,7 @@ safe_transaction(
 ## insert pre data into pg.stems
 
 ```{r}
+#| label: insert pre data into pg.stems
 #| eval: true
 
 insert_pre <- "
@@ -273,6 +289,7 @@ safe_transaction(
 note the use of `urbancndep.stems.pre_date` in this query
 
 ```{r}
+#| label: add stem_id generated from insert of new stems to plots_plants
 #| eval: true
 
 add_stem_id_new <- "
@@ -296,6 +313,7 @@ safe_transaction(
 ## add stem_id generated from update of old stems to plots_plants
 
 ```{r}
+#| label: add stem_id generated from update of old stems to plots_plants
 #| eval: true
 
 add_stem_id_old <- "
@@ -320,6 +338,7 @@ safe_transaction(
 ## prep for and add stem_id generated from update of stems to old;
 
 ```{r}
+#| label: alter stems_temp.old
 #| eval: true
 
 DBI::dbExecute(
@@ -336,6 +355,7 @@ DBI::dbExecute(
 
 
 ```{r}
+#| label: update stems_temp.old with stem_id from plots_plants
 #| eval: true
 
 update_stems_old <- "
@@ -359,6 +379,7 @@ safe_transaction(
 ## add boolean TRUE to denote post measurement
 
 ```{r}
+#| label: update stems_temp.old with post measurement boolean
 #| eval: true
 
 DBI::dbExecute(
@@ -369,12 +390,14 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
 ## insert old lengths into pg.stem_lengths
 
 ```{r}
+#| label: insert old lengths into pg.stem_lengths
 #| eval: true
 
 insert_old <- "
@@ -405,6 +428,7 @@ safe_transaction(
 ## prep for adding stem_id generated from insert of stems to new
 
 ```{r}
+#| label: alter stems_temp.new
 #| eval: true
 
 DBI::dbExecute(
@@ -422,6 +446,7 @@ DBI::dbExecute(
 ## add stem_id generated from insert of stems to new
 
 ```{r}
+#| label: add stem_id generated from insert of stems to new
 #| eval: true
 
 update_stems_new <- "
@@ -445,6 +470,7 @@ safe_transaction(
 ## prep boolean FALSE to denote post measurement (later step)
 
 ```{r}
+#| label: update stems_temp.new with post measurement boolean
 #| eval: true
 
 DBI::dbExecute(
@@ -461,6 +487,7 @@ DBI::dbExecute(
 ## insert new lengths into pg.stem_lengths
 
 ```{r}
+#| label: insert new lengths into pg.stem_lengths
 #| eval: true
 
 insert_stems_new <- "
@@ -495,6 +522,7 @@ Uses plant-level keys (shrub_id, survey_date). Values are deduplicated per key
 when the same note appears in multiple directional rows.
 
 ```{r}
+#| label: insert any notes about plants into stem_comment
 #| eval: true
 
 DBI::dbWithTransaction(
@@ -541,6 +569,7 @@ DBI::dbWithTransaction(
 ## add plot notes (new as of 2018-10-22)
 
 ```{r}
+#| label: add plot notes
 #| eval: true
 
 DBI::dbWithTransaction(
@@ -592,6 +621,7 @@ database and thus avoid having a missing direction. So, for example, in May
 for E so we could simple ignore that NULL value
 
 ```{r}
+#| label: identify and document missing new stems
 #| eval: true
 
 new_null <- function() {
@@ -636,6 +666,7 @@ new_null <- function() {
 }
 
 new_null()
+
 ```
 
 ## address missing NEW values
@@ -649,6 +680,7 @@ particular `plot*plant*direction`. We can then pass these details to
 and (2) add a `missing value` note to `urbancndep.stems.pre_note`.
 
 ```{r}
+#| label: address missing new stems
 #| eval: true
 
 new_stems_missing <- identify_new_missing()
@@ -663,6 +695,7 @@ purrr::pwalk(
 # shrub dimensions
 
 ```{r}
+#| label: add shrub_id to stems_temp.shrub_dimensions
 #| eval: true
 
 DBI::dbExecute(
@@ -673,10 +706,12 @@ DBI::dbExecute(
   ;
   "
 )
+
 ```
 
 
 ```{r}
+#| label: insert shrub dimensions into urbancndep.shrub_measurements
 #| eval: true
 
 DBI::dbWithTransaction(
@@ -733,6 +768,7 @@ DBI::dbWithTransaction(
 ## data spot check
 
 ```{r}
+#| label: data spot check
 #| eval: true
 
 years <- c(
@@ -783,11 +819,19 @@ recent_data <- DBI::dbGetQuery(
   conn      = pg,
   statement = query_recent
 )
+
+data.table::fwrite(
+  x          = recent_data,
+  file       = "/tmp/recent_data.csv",
+  dateTimeAs = "write.csv"
+)
+
 ```
 
 ## check shrub dimensions data
 
 ```{r}
+#| label: check shrub dimensions data
 #| eval: true
 
 query_recent_measurements <- glue::glue_sql("
@@ -817,12 +861,20 @@ recent_measurements <- DBI::dbGetQuery(
   conn      = pg,
   statement = query_recent_measurements
 )
+
+data.table::fwrite(
+  x          = recent_measurements,
+  file       = "/tmp/recent_measurements.csv",
+  dateTimeAs = "write.csv"
+)
+
 ```
 
 
 # CLEAN UP
 
 ```{r}
+#| label: drop stems_temp schema
 #| eval: true
 
 DBI::dbExecute(

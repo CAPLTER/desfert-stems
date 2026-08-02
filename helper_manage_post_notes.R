@@ -25,8 +25,8 @@ coalesce_old_notes <- function(source_data, cardinal_direction) {
       tidyselect::all_of(this_direction)
     )
 
-    notes_tibble <- notes_tibble |>
-    dplyr::rename(post_note = this_direction)
+  notes_tibble <- notes_tibble |>
+    dplyr::rename(post_note = tidyselect::all_of(this_direction))
 
   return(notes_tibble)
 
