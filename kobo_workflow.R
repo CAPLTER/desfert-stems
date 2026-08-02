@@ -24,6 +24,7 @@ source("helper_complete_matrix.R")
 source("helper_manage_post_notes.R")
 source("helper_build_plots_plants.R")
 source("helper_check_kobo_data.R")
+source("helper_identify_new_missing.R")
 
 
 # workflow ---------------------------------------------------------------------
@@ -168,13 +169,17 @@ old <- dplyr::left_join(
     "submission_id" = "id",
     "parent_index"  = "plants_index"
   )
-) |>
+  ) |>
   dplyr::select(
+    submission_id,
+    submission_uuid,
+    survey_date,
     plant_id,
     old_direction = direction,
     old_length,
     plot_id,
-    plants_index  = parent_index
+    plants_index = parent_index,
+    stem_index = index
   )
 
 new <- dplyr::left_join(
@@ -184,13 +189,21 @@ new <- dplyr::left_join(
     "submission_id" = "id",
     "parent_index"  = "plants_index"
   )
-) |>
+  ) |>
   dplyr::select(
+    submission_id,
+    submission_uuid,
+    survey_date,
     plant_id,
     new_direction = direction,
     new_length,
     plot_id,
-    plants_index  = parent_index
+    plants_index = parent_index,
+    stem_index = index
+  ) |>
+  dplyr::mutate(
+    mapping_submission_id = submission_id,
+    mapping_plants_index = plants_index
   )
 
 
@@ -219,6 +232,25 @@ plots_plants <- plots_plants |>
 old <- old |>
   dplyr::filter(!plants_index %in% ambiguous_plants_index)
 
+# The plot 33/L1 entry was split across two KoBo plant records. Preserve the
+# original lineage for the N stem measurement while mapping it to the retained
+# plant record that contains the W, E, and S measurements.
+new <- new |>
+  dplyr::mutate(
+    mapping_submission_id = dplyr::case_when(
+      submission_id == 743974665 &
+        plants_index == 31 &
+        stem_index == 148 ~ 743974661,
+      TRUE ~ mapping_submission_id
+    ),
+    mapping_plants_index = dplyr::case_when(
+      submission_id == 743974665 &
+        plants_index == 31 &
+        stem_index == 148 ~ 30,
+      TRUE ~ mapping_plants_index
+    )
+  )
+
 
 # STEP 6: shrub dimensions
 
@@ -236,6 +268,8 @@ shrub_dimensions <- plots_plants |>
     )
   ) |>
   dplyr::rename(
+    submission_id = id,
+    submission_uuid = uuid,
     n_s = width_of_plant_at_widest_point_n_s,
     e_w = width_of_plant_at_widest_point_e_w,
   ) |>
@@ -285,7 +319,7 @@ check_kobo_key_uniqueness(
   plots_plants_data = plots_plants,
   keys              = c("survey_date", "plot_id", "plant_id", "direction"),
   check_name        = "direction-expanded plots_plants",
-  stop_on_error     = TRUE
+  stop_on_error     = FALSE
 )
 
 
@@ -301,10 +335,13 @@ post_note <- purrr::map_df(
   )
 )
 
+rows_before_post_notes <- base::nrow(plots_plants)
+
 plots_plants <- plots_plants |>
   dplyr::left_join(
     post_note,
     by = c(
+      "id"           = "submission_id",
       "plants_index" = "index",
       "direction"    = "direction"
     )
@@ -320,5 +357,118 @@ plot_notes <- plots |>
     survey_date = date,
     plot_notes  = note_about_plot
   )
+
+# STEP 10: final validation
+
+final_kobo_checks <- c(
+  required_plots_plants_values = check_kobo_required_values(
+    plots_plants_data = plots_plants,
+    required_columns = c(
+      "survey_date",
+      "plot_id",
+      "id",
+      "uuid",
+      "plant_id",
+      "plants_index",
+      "direction"
+    ),
+    check_name = "final plots_plants required values",
+    stop_on_error = FALSE
+  ),
+  unique_plots_plants_keys = check_kobo_key_uniqueness(
+    plots_plants_data = plots_plants,
+    keys = c("survey_date", "plot_id", "plant_id", "direction"),
+    check_name = "final plots_plants uniqueness",
+    stop_on_error = FALSE
+  ),
+  complete_direction_coverage = check_kobo_direction_coverage(
+    plots_plants_data = plots_plants,
+    group_keys = c(
+      "survey_date",
+      "plot_id",
+      "id",
+      "plant_id",
+      "plants_index"
+    ),
+    check_name = "final cardinal direction coverage",
+    stop_on_error = FALSE
+  ),
+  post_note_join_row_count = check_kobo_row_count(
+    expected_rows = rows_before_post_notes,
+    observed_rows = base::nrow(plots_plants),
+    check_name = "post_note join row count",
+    stop_on_error = FALSE
+  ),
+  required_old_lineage = check_kobo_required_values(
+    plots_plants_data = old,
+    required_columns = c(
+      "submission_id",
+      "submission_uuid",
+      "survey_date",
+      "plot_id",
+      "plant_id",
+      "plants_index",
+      "stem_index",
+      "old_direction"
+    ),
+    check_name = "old stems source lineage",
+    stop_on_error = FALSE
+  ),
+  unique_old_source_rows = check_kobo_key_uniqueness(
+    plots_plants_data = old,
+    keys = c("submission_id", "plants_index", "stem_index"),
+    check_name = "old stems source row identity",
+    stop_on_error = FALSE
+  ),
+  required_new_lineage = check_kobo_required_values(
+    plots_plants_data = new,
+    required_columns = c(
+      "submission_id",
+      "submission_uuid",
+      "survey_date",
+      "plot_id",
+      "plant_id",
+      "plants_index",
+      "stem_index",
+      "new_direction",
+      "mapping_submission_id",
+      "mapping_plants_index"
+    ),
+    check_name = "new stems source lineage",
+    stop_on_error = FALSE
+  ),
+  unique_new_source_rows = check_kobo_key_uniqueness(
+    plots_plants_data = new,
+    keys = c("submission_id", "plants_index", "stem_index"),
+    check_name = "new stems source row identity",
+    stop_on_error = FALSE
+  ),
+  required_plot_note_keys = check_kobo_required_values(
+    plots_plants_data = plot_notes,
+    required_columns = c("site", "plot_id", "survey_date"),
+    check_name = "plot note source keys",
+    stop_on_error = FALSE
+  )
+)
+
+stop_on_failed_kobo_checks(final_kobo_checks)
+
+new_stems_missing <- identify_new_missing(new_lengths_data = new)
+
+if (base::is.null(new_stems_missing)) {
+  new_stems_missing <- tibble::tibble(
+    submission_id = base::integer(),
+    submission_uuid = base::character(),
+    survey_date = base::as.Date(base::character()),
+    plant_id = base::character(),
+    new_direction = base::character(),
+    new_length = base::double(),
+    plot_id = base::integer(),
+    plants_index = base::integer(),
+    stem_index = base::integer(),
+    mapping_submission_id = base::integer(),
+    mapping_plants_index = base::integer()
+  )
+}
 
 print("completed kobo_workflow.R")

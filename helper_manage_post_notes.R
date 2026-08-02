@@ -20,6 +20,7 @@ coalesce_old_notes <- function(source_data, cardinal_direction) {
     dplyr::filter(!is.na(!!rlang::sym(this_direction))) |>
     dplyr::mutate(direction = cardinal_direction) |>
     dplyr::select(
+      submission_id,
       index,
       direction,
       tidyselect::all_of(this_direction)

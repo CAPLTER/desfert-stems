@@ -1,21 +1,206 @@
-## desfert-stems
+# desfert-stems
 
-This repository contains the materials for creating the ~~ODK~~ KoBo
-stem-measurement and plant biovolume applications, and tools & procedures for
-processing collected data.
+This repository contains the field application, data-processing code, database
+upload workflow, and migration artifacts used for DesFert stem-length and shrub
+biovolume measurements. The current workflow collects data with KoBoToolbox,
+validates and reshapes a KoBo Excel export in R, stages the derived tables in
+PostgreSQL, and uploads one spring or fall collection to the `urbancndep`
+schema.
 
-Since moving away from paper data sheets, the workflow for collecting and
-processing stems data has evolved through many iterations. The first application
-was build with ODK, with a processing workflow that entailed manually
-downloading data files from the tablets then extracting the information with
-ODK's Briefcase tool with subsequent formatting and upload to the urbancndep
-database. As support fro Briefcase eroded, a manual workflow to harvest data
-directly from XML files downloaded from the tablets was developed. In the most
-recent iteration, we switched from ODK to the KoBo ecosystem, which provides
-better cloud support. In this new KoBo-centric workflow, the application logic
-is uploaded to KoBoToolbox as an Excel file, which can then be downloaded to the
-tablets. Data collected in the field is then uploaded to KoBoToolbox. At the end
-of a sampling campaign, data are exported from KoBoToolbox as an Excel file. The
-`kobo_workflow.R` details harvesting data from the Excel file with appropriate
-formatting for upload to the database with the actual upload facilitated by the
-logic in `populate_database.qmd`.
+The repository also preserves the earlier ODK Briefcase and direct-XML
+workflows. Those archived files are useful records of how the project and its
+data model evolved, but they are not the current upload path.
+
+## Current workflow at a glance
+
+1. The KoBo application definition in [`app/desfert_stems.xlsx`](app/desfert_stems.xlsx)
+   is published to KoBoToolbox and deployed to the field tablets.
+2. Completed submissions are uploaded to KoBoToolbox and exported after a
+   sampling campaign as a multi-sheet Excel workbook.
+3. [`kobo_workflow.R`](kobo_workflow.R) reads the export, joins its plot, plant,
+   old-stem, and new-stem repeat groups, applies collection-specific fixes, and
+   creates upload-ready R objects.
+4. Intermediate data checks report problems without stopping so documented
+   fixes can run. A final validation gate requires complete keys, unique logical
+   records, four cardinal directions per plant, preserved row counts, and
+   traceable source lineage.
+5. [`populate_database.qmd`](populate_database.qmd) rebuilds the disposable
+   `stems_temp` staging schema and loads the transformed objects.
+6. [`helper_upload_stems_data.R`](helper_upload_stems_data.R) validates all key
+   mappings and performs the dependent production updates and inserts in one
+   transaction. Any failed preflight, SQL statement, or affected-row check
+   rolls back the complete upload.
+7. The completed source checksum and row-count accounting are written to
+   `urbancndep.stems_upload_log`, preventing the same KoBo export from being
+   committed twice.
+8. Post-upload queries export recent stem and shrub-measurement records for
+   review; the staging schema is dropped only after a successful run.
+
+The important distinction is that transformation fixes and final acceptance
+checks serve different purposes. A known, repairable problem may be reported
+early while the script continues, but unresolved problems at the final R gate
+or any database preflight stop the workflow before a partial collection can be
+committed.
+
+## Running a collection
+
+Always run a new or materially changed workflow against a freshly restored test
+database first. Confirm the connection host, user, and database explicitly; the
+upload notebook also prints the active database target before staging data.
+
+1. Set `path` near the top of [`kobo_workflow.R`](kobo_workflow.R) to the KoBo
+   Excel export for the collection.
+2. Run the KoBo workflow sequentially and review every failed-but-continuing
+   check and its corresponding fix.
+
+   ```bash
+   Rscript kobo_workflow.R
+   ```
+
+3. Do not proceed unless the script ends with `Final KoBo validation passed.`
+4. Execute [`populate_database.qmd`](populate_database.qmd) sequentially. It
+   selects the preceding collection, stages the R objects, and invokes the
+   atomic upload.
+5. Review the returned row-count summary and the recent-data verification
+   exports before accepting the collection.
+
+The exact corrections in `kobo_workflow.R` are collection-specific. Historical
+fixes are generally retained as commented examples because they document real
+field-data failure modes. Active fixes should be narrowly keyed to stable KoBo
+identifiers and followed by validation. When a duplicated KoBo plant entry
+contains valid measurements, preserve its original source identifiers and use
+separate canonical mapping keys rather than erasing its provenance.
+
+## What the workflow writes
+
+The upload connects consecutive sampling campaigns. The preceding collection's
+stems receive the current visit as their post-measurement event, while a new set
+of stems is created for the current visit's pre-measurement event. Database IDs
+generated by those operations are needed by later length, note, and shrub
+measurement writes, so the redesigned upload maps and consumes them inside one
+transaction rather than committing after each step.
+
+The principal staged objects are:
+
+| Object | Purpose |
+| --- | --- |
+| `plots_plants` | One row per plant and cardinal direction; anchors shrubs, old stems, new stems, and plant notes. |
+| `old` | Measurements of the stems established during the preceding collection. |
+| `new` | Measurements that establish stems for the current collection. |
+| `new_stems_missing` | Explicit records for expected directions with no new measurement. |
+| `shrub_dimensions` | Canopy dimensions and height for measured shrubs. |
+| `plot_notes` | Notes associated with a plot and survey date. |
+
+Before changing production tables, the upload checks that every staged shrub,
+old stem, new stem measurement, documented missing value, and shrub dimension
+maps to exactly one database record. It also rejects collisions with an already
+loaded collection and checks the affected row count of every database action.
+
+## Plot, plant, and stem comments
+
+Comments are difficult in this project because the collection hierarchy and
+the database hierarchy do not have the same granularity. A note may describe a
+whole plot visit, one plant at that visit, or one directional stem before or
+after measurement. Earlier workflows sometimes attached broader comments to a
+single stem simply because that was the available key. The current model keeps
+the scopes separate:
+
+| Scope | Current storage and key | Use |
+| --- | --- | --- |
+| Plot event | `stem_plot_notes(plot_id, survey_date)` | Conditions or events applying to the plot visit. |
+| Plant event | `stem_comment(shrub_id, survey_date)` | Observations or documented corrections applying to a shrub during one visit. |
+| Directional stem event | `stems.pre_note` and `stems.post_note` | Notes specific to a stem direction and its pre- or post-measurement context. |
+| Shrub dimensions | `shrub_measurements.notes` | Context recorded with canopy and height measurements; recent applicable content was migrated into plant comments. |
+
+Plant notes occur on records later expanded to four direction rows. The upload
+therefore trims blank values, groups notes by `(shrub_id, survey_date)`, and
+aggregates distinct text before inserting a plant comment. Plot notes are
+validated and inserted independently. Direction-specific KoBo notes are joined
+using submission ID, plant repeat index, and direction so notes cannot leak
+between duplicated submissions.
+
+Text cleanup is intentionally conservative. It trims surrounding whitespace,
+normalizes line breaks and control characters, and preserves the note as a
+single string. Tokenization or punctuation-based splitting must not be used:
+historical cleanup demonstrated that text such as `Normal. Tall.` can otherwise
+be semantically corrupted.
+
+Missing new-stem measurements are represented by a `NULL` length and a
+`missing value` entry in `stems.pre_note`. This keeps a direction-specific data
+absence on the stem event rather than manufacturing a plant-level comment.
+
+## Evolution of the project
+
+| Period | Collection and processing workflow | Important data-model development |
+| --- | --- | --- |
+| Before repository history | Paper field sheets | Stem processing was manual and had no application-level lineage. |
+| 2017–2019 | ODK application, tablet file copies, ODK Briefcase export, shell merging, and an R/SQL migration script | Error checking and database upload became reproducible; plot-event notes were added for the fall 2018 collection. |
+| Fall 2020 | ODK collection continued, but declining Briefcase compatibility led to custom R extraction directly from tablet XML | Repeat-group extraction became explicit in helper scripts, including separate plot-note and old-stem-note handling. |
+| Fall 2021 | Direct-XML workflow | Ambiguous and missing plant identities required explicit filtering, reconstructed expected rows, and explanatory comments, establishing the pattern of documenting subjective corrections. |
+| Spring 2022 onward | KoBoToolbox application and cloud export replaced ODK/Briefcase; shrub biovolume measurements joined the stem workflow | Plot, plant, old-stem, and new-stem repeat groups gained KoBo submission and repeat-index lineage. Missing-direction helpers and completeness matrices were introduced. |
+| 2023–2025 | KoBo workflow refined over successive collections | More systematic completeness checks, note normalization, safe affected-row checks, and support for collections spanning multiple months were added. Collection-specific fixes remained visible as documentation. |
+| April 2026 comment redesign | In-place migration with baseline metrics, audit tables, verification queries, and restored-database testing | Plant comments moved from stem-level keys to `(shrub_id, survey_date)`. Legacy `stem_id` and `post_measurement` fields were retained temporarily. `shrub_measurements.notes` content from 2022-05-13 onward was merged in the corrected direction, and `stems.pre_note` became the home for missing pre-measurement context. Sentinel length `999` was converted to `NULL`. |
+| Current redesign | KoBo validation plus staged, atomic PostgreSQL upload | Source lineage is retained through fixes; warning-first checks feed a final abort gate; all dependent writes share one transaction; exact mapping and row-count checks fail closed; successful source exports are recorded by checksum. |
+
+The detailed April 2026 rationale, checkpoints, and transitional policy are in
+[`migration_202604/migration_runbook.md`](migration_202604/migration_runbook.md).
+The executable and verification SQL remain beside it so the schema history can
+be reviewed independently of the current ETL.
+
+## Safety, auditing, and known legacy conditions
+
+[`urbancndep_stems_integrity_audit.sql`](urbancndep_stems_integrity_audit.sql)
+is a read-only audit for historical mapping conditions relevant to future
+constraints. It reports missing or orphaned shrub identifiers, shrub/plot
+disagreements, duplicate shrub/date measurement groups, and missing, orphaned,
+or duplicate plot/date note groups. Findings should be investigated separately
+from a collection upload; the current workflow prevents new mapping failures
+without attempting to repair all historical records.
+
+Use explicit connection parameters when running either database script:
+
+```bash
+psql -h localhost -U srearl -d caplter -v ON_ERROR_STOP=1 \
+  -f urbancndep_stems_integrity_audit.sql
+```
+
+The upload transaction protects production writes, but staging is intentionally
+disposable. If a run fails, the production changes are rolled back; rerunning
+the complete notebook recreates `stems_temp` from the R objects.
+
+## Repository guide
+
+- [`app/`](app/) — current KoBo application definition and retained ODK forms.
+- [`kobo_workflow.R`](kobo_workflow.R) — current extraction, correction,
+  transformation, and final R validation workflow.
+- [`helper_check_kobo_data.R`](helper_check_kobo_data.R) — delineated
+  warning/abort validation helpers.
+- [`populate_database.qmd`](populate_database.qmd) — staging, upload
+  orchestration, and post-upload verification.
+- [`helper_upload_stems_data.R`](helper_upload_stems_data.R) — database
+  preflights and the atomic production transaction.
+- [`urbancndep_stems_workflow_safety_migration.sql`](urbancndep_stems_workflow_safety_migration.sql)
+  — upload provenance ledger and rerun protection.
+- [`urbancndep_stems_integrity_audit.sql`](urbancndep_stems_integrity_audit.sql)
+  — read-only legacy integrity review.
+- [`migration_202604/`](migration_202604/) — plant-comment redesign migration,
+  verification, rebuild support, and runbook.
+- [`archive/`](archive/) — historical Briefcase, direct-XML, and earlier upload
+  workflows; retained for provenance rather than active use.
+- [`tests/`](tests/) — focused tests for KoBo validation and lineage-preserving
+  missing-direction handling.
+
+## Validation during development
+
+There is no single package-level build. Run the checks relevant to the changed
+component:
+
+```bash
+Rscript tests/testthat.R
+Rscript kobo_workflow.R
+```
+
+For database changes, apply migrations and exercise uploads first against a
+freshly restored test database. A successful R-only workflow does not prove the
+database mappings, and a successful SQL parse does not prove row-count
+congruence; both validation layers are required.

@@ -1,43 +1,81 @@
-#' @title helper: wrap database actions in a safe transaction
+#' @title helper: execute a checked database action
 #'
-#' @description Where feasible, wraps database actions in a transaction and
-#' compares the number of affected records to a reference object. The
-#' transaction is committed if the number of records affected and the number of
-#' rows of the reference object are congruent, and rolled back if not.
+#' @description Executes one database action and compares the affected row count
+#' with an explicit expectation. New calls do not begin or commit a transaction;
+#' the calling workflow owns the transaction boundary so dependent operations
+#' can commit or roll back together. The legacy `ref_object` call form retains
+#' its historical per-action transaction behavior.
 #'
 #' @param db_connection (character) Unquoted database connection identifier.
 #' @param action (character) Database action that is to be performed, should be
 #' in the form of plain text or a glue object.
-#' @param ref_object (character) Unquoted name of the reference object. This
-#' object must exist in the R environment.
+#' @param expected_rows Integer number of rows the action must affect.
+#' @param action_name Label included in transaction diagnostics.
+#' @param ref_object Optional legacy reference object. When supplied instead of
+#' `expected_rows`, the action runs in its own transaction for compatibility
+#' with archived workflows.
 #'
 #' @export
 #'
 safe_transaction <- function(
   db_connection = pg,
   action,
-  ref_object
+  expected_rows = NULL,
+  action_name = "database action",
+  ref_object = NULL
 ) {
 
-  # start transaction
-  DBI::dbBegin(conn = db_connection)
+  legacy_transaction <- base::is.null(expected_rows)
 
-  # execute action
-  num_edits <- DBI::dbExecute(
-    conn      = db_connection,
-    statement = action 
-  )
+  if (legacy_transaction) {
+    if (base::is.null(ref_object)) {
+      base::stop(
+        "supply expected_rows or the legacy ref_object argument",
+        call. = FALSE
+      )
+    }
 
-  if (num_edits == nrow(ref_object)) {
+    expected_rows <- base::nrow(ref_object)
+  }
 
-    DBI::dbCommit(conn = db_connection)
-    message("executed action on ", num_edits)
+  if (
+    base::length(expected_rows) != 1 ||
+      base::is.na(expected_rows) ||
+      expected_rows < 0
+  ) {
+    base::stop("expected_rows must be one nonnegative value", call. = FALSE)
+  }
 
+  execute_checked_action <- function() {
+    num_edits <- DBI::dbExecute(
+      conn      = db_connection,
+      statement = action
+    )
+
+    row_count_matches <- base::identical(
+      base::as.integer(num_edits),
+      base::as.integer(expected_rows)
+    )
+
+    if (!row_count_matches) {
+      base::stop(
+        action_name,
+        " affected ",
+        num_edits,
+        " rows; expected ",
+        expected_rows,
+        call. = FALSE
+      )
+    }
+
+    base::message(action_name, ": affected ", num_edits, " rows as expected")
+    base::invisible(num_edits)
+  }
+
+  if (legacy_transaction) {
+    DBI::dbWithTransaction(db_connection, execute_checked_action())
   } else {
-
-    DBI::dbRollback(conn = db_connection)
-    message("number of rows affected does not match object; rolling back")
-
+    execute_checked_action()
   }
 
 }

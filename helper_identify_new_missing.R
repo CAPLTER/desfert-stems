@@ -63,18 +63,42 @@ generate_matrix_new_null <- function(
   NSWE
   ) {
 
-  lengths_data |>
-  dplyr::filter(
-    plot_id  == new_null_plot,
-    plant_id == new_null_plant
-    ) |>
-  dplyr::right_join(
+  plant_rows <- lengths_data |>
+    dplyr::filter(
+      plot_id  == new_null_plot,
+      plant_id == new_null_plant
+    )
+
+  identity_columns <- base::intersect(
+    c(
+      "submission_id",
+      "submission_uuid",
+      "survey_date",
+      "plot_id",
+      "plant_id",
+      "plants_index",
+      "mapping_submission_id",
+      "mapping_plants_index"
+    ),
+    base::names(plant_rows)
+  )
+
+  identity_values <- plant_rows |>
+    dplyr::slice(1)
+
+  plant_rows |>
+    dplyr::right_join(
     NSWE,
     by = c("new_direction" = "direction")
   ) |>
-  dplyr::mutate(
-    plot_id  = replace(plot_id, is.na(new_length), new_null_plot),
-    plant_id = replace(plant_id, is.na(new_length), new_null_plant)
-  )
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::all_of(identity_columns),
+        ~ dplyr::coalesce(
+          .x,
+          identity_values[[dplyr::cur_column()]][[1]]
+        )
+      )
+    )
 
 }
