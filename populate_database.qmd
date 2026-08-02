@@ -233,7 +233,7 @@ if (nrow(update_post_duplicates) > 0) {
 
 safe_transaction(
   action     = update_post_query,
-  ref_object = plots_plants
+  ref_object = update_post_expected
 )
 
 ```

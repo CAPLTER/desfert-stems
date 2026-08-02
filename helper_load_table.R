@@ -11,22 +11,27 @@ helper_load_table <- function(
   table_name
   ) {
 
+  table_identifier <- DBI::Id(
+    schema = schema_name,
+    table  = table_name
+  )
+
   if (
     DBI::dbExistsTable(
       conn = connection,
-      name = c(schema_name, table_name)
+      name = table_identifier
     )
     ) {
 
     DBI::dbRemoveTable(
       conn = connection,
-      name = c(schema_name, table_name)
+      name = table_identifier
     )
   }
 
   DBI::dbWriteTable(
     conn      = connection,
-    name      = c(schema_name, table_name),
+    name      = table_identifier,
     value     = get(table_name),
     row.names = FALSE
   )

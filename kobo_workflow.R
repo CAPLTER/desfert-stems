@@ -23,14 +23,14 @@ source("helper_remove_ambiguous.R")
 source("helper_complete_matrix.R")
 source("helper_manage_post_notes.R")
 source("helper_build_plots_plants.R")
+source("helper_check_kobo_data.R")
 
 
 # workflow ---------------------------------------------------------------------
 
 # path to KoBo download
 
-# path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-09-56.xlsx"
-path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-04-07-16-11-05.xlsx"
+path <- "~/Desktop/desfert_stems_-_all_versions_-_English_en_-_2026-08-01-19-31-30.xlsx"
 
 
 # STEP 1: read data from KoBo download
@@ -51,15 +51,27 @@ plots_plants <- build_plots_plants(
 
 # STEP 3: error checking
 
-# all plot * plants should be 1
+## all plot * plants should be 1
 
 plots_plants |>
   dplyr::count(plot_id, plant_id) |>
   dplyr::filter(n > 1)
 
-# evaluate a matrix that encompasses all combinations of plots and plants that
-# should be measured versus those that were actually measured to identify
-# potential errors
+## check for duplicate rows in the plots_plants data frame, which would indicate
+## that there are multiple entries for the same combination of survey_date,
+## plot_id, and plant_id. This is important to ensure that each plant measurement
+## is unique and can be accurately associated with its corresponding plot and
+## survey date.
+
+check_kobo_key_uniqueness(
+  plots_plants_data = plots_plants,
+  keys              = c("survey_date", "plot_id", "plant_id"),
+  check_name        = "pre-direction plots_plants"
+)
+
+## evaluate a matrix that encompasses all combinations of plots and plants that
+## should be measured versus those that were actually measured to identify
+## potential errors
 
 complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 
@@ -77,29 +89,19 @@ complete_matrix <- generate_complete_matrix(plots_plants_data = plots_plants)
 #     )
 #   )
 
-# plots_plants <- build_plots_plants(
-#   plots_data  = plots,
-#   plants_data = plants
-# )
+# Example, here fixing data for a plant in the October 2025 collection; this
+# error was identified from the complete_matrix:
 
-# Example, here fixing data for a plant in the October 2025 so we need to go
-# back and recreate plots_plants after running this; this error was identified
-# from the complete_matrix:
+# plants <- plants |>
+#   dplyr::mutate(
+#     plant_id = dplyr::case_when(
+#       index == 56 ~ 'L5',
+#       TRUE ~ plant_id
+#     )
+#   )
 
-plants <- plants |>
-  dplyr::mutate(
-    plant_id = dplyr::case_when(
-      index == 56 ~ 'L5',
-      TRUE ~ plant_id
-    )
-  )
 
-plots_plants <- build_plots_plants(
-  plots_data  = plots,
-  plants_data = plants
-)
-
-# Generally, we will want to make a note about any data edits, particularly if
+# Depending on the correction, we will want to make a note about any data edits, particularly if
 # there is any uncertainty or subjectivity to them. In most cases, the note,
 # even if at the plot level, should be addressed at the plant level so that the
 # information is starkly visible to a user assessing length data. Continuing
@@ -122,9 +124,6 @@ plots_plants <- build_plots_plants(
 #     )
 #   )
 
-# It is important to rebuild plots_plants when addressing fixes like the above
-# that affect the components that are used to build plots_plants.
-
 # Example, here it seems that the E-W dimension of a shrub was entered into the
 # notes field:
 
@@ -140,6 +139,22 @@ plots_plants <- build_plots_plants(
 #       TRUE ~ note_about_plant
 #     )
 #   )
+
+# In most cases, we need to rebuild plots plants:
+
+plots_plants <- build_plots_plants(
+  plots_data  = plots,
+  plants_data = plants
+)
+
+
+# Always, re-check the data:
+
+check_kobo_key_uniqueness(
+  plots_plants_data = plots_plants,
+  keys              = c("survey_date", "plot_id", "plant_id"),
+  check_name        = "post-fix pre-direction plots_plants"
+)
 
 
 # STEP 4: apply appropriate formatting and metadata to new and old stem lengths
@@ -189,6 +204,18 @@ new <- dplyr::left_join(
 #   missing_plant    = "L3",
 #   survey_date      = "2024-10-22"
 # )
+
+# However, below is an example where we need to remove duplicate, ambiguous
+# plants and stems from plots_plants, in which case fixes are applied to
+# plots_plants and old; plots_plants is not rebuilt.
+
+ambiguous_plants_index <- c(31, 133)
+
+plots_plants <- plots_plants |>
+  dplyr::filter(!plants_index %in% ambiguous_plants_index)
+
+old <- old |>
+  dplyr::filter(!plants_index %in% ambiguous_plants_index)
 
 
 # STEP 6: shrub dimensions
@@ -252,6 +279,12 @@ plots_plants <- plots_plants |>
   assertr::assert(
     assertr::not_na, c(survey_date, plant_id, direction)
   )
+
+check_kobo_key_uniqueness(
+  plots_plants_data = plots_plants,
+  keys              = c("survey_date", "plot_id", "plant_id", "direction"),
+  check_name        = "direction-expanded plots_plants"
+)
 
 
 # STEP 8: add old notes
