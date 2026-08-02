@@ -15,11 +15,22 @@ SQL statement rolls the entire collection upload back.
 
 # Prepare the R session
 
+The connection settings must assign `pg` from `RPostgres::Postgres()`. The
+workflow rejects legacy `RPostgreSQL::PostgreSQL()` connections before reading
+or writing database objects because their handling of schema-qualified
+identifiers differs.
+
 ```{r}
 #| label: database connection
 #| eval: true
 
 source("~/Documents/localSettings/pg_local.R")
+source("helper_check_database_connection.R")
+
+check_rpostgres_connection(
+  connection = pg,
+  connection_name = "upload connection"
+)
 
 ```
 
@@ -93,23 +104,26 @@ DBI::dbExecute(
 #| label: load staging tables
 #| eval: true
 
-data_tables <- c(
-  "new",
-  "old",
-  "plots_plants",
-  "plot_notes",
-  "shrub_dimensions",
-  "new_stems_missing"
+staging_data <- base::list(
+  new = new,
+  old = old,
+  plots_plants = plots_plants,
+  plot_notes = plot_notes,
+  shrub_dimensions = shrub_dimensions,
+  new_stems_missing = new_stems_missing
 )
 
-purrr::walk(
-  .x = data_tables,
+staging_results <- purrr::imap_dfr(
+  .x = staging_data,
   .f = ~ helper_load_table(
     connection = pg,
     schema_name = "stems_temp",
-    table_name = .x
+    table_name = .y,
+    table_data = .x
   )
 )
+
+base::print(staging_results)
 
 ```
 

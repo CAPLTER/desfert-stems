@@ -22,6 +22,11 @@ upload_stems_data <- function(
   source_md5
 ) {
 
+  check_rpostgres_connection(
+    connection = db_connection,
+    connection_name = "upload transaction connection"
+  )
+
   required_staging_tables <- c(
     "new",
     "old",
