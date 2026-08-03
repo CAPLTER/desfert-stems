@@ -16,10 +16,6 @@ check_rpostgres_connection <- function(
   connection_name = "database connection"
 ) {
 
-  if (!DBI::dbIsValid(connection)) {
-    base::stop(connection_name, " is not valid", call. = FALSE)
-  }
-
   connection_classes <- base::class(connection)
 
   if (!base::inherits(connection, "PqConnection")) {
@@ -29,6 +25,10 @@ check_rpostgres_connection <- function(
       base::paste(connection_classes, collapse = ", "),
       call. = FALSE
     )
+  }
+
+  if (!DBI::dbIsValid(connection)) {
+    base::stop(connection_name, " is not valid", call. = FALSE)
   }
 
   base::message(

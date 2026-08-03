@@ -15,10 +15,11 @@ SQL statement rolls the entire collection upload back.
 
 # Prepare the R session
 
-The connection settings must assign `pg` from `RPostgres::Postgres()`. The
-workflow rejects legacy `RPostgreSQL::PostgreSQL()` connections before reading
-or writing database objects because their handling of schema-qualified
-identifiers differs.
+The connection settings must assign `pg` from `RPostgres::Postgres()`. Install
+`RPostgres` on every host that runs this workflow. Legacy
+`RPostgreSQL::PostgreSQL()` connections are rejected before reading or writing
+database objects because their handling of schema-qualified identifiers
+differs.
 
 ```{r}
 #| label: database connection

@@ -48,6 +48,17 @@ Always run a new or materially changed workflow against a freshly restored test
 database first. Confirm the connection host, user, and database explicitly; the
 upload notebook also prints the active database target before staging data.
 
+The active workflow requires the modern `RPostgres` DBI interface and rejects
+legacy `RPostgreSQL` connections. Install the same driver on local and remote
+hosts before running the workflow:
+
+```r
+install.packages("RPostgres")
+```
+
+On Linux, building `RPostgres` may first require the PostgreSQL client
+development library (`libpq-dev` on Debian and Ubuntu).
+
 1. Set `path` near the top of [`kobo_workflow.R`](kobo_workflow.R) to the KoBo
    Excel export for the collection.
 2. Run the KoBo workflow sequentially and review every failed-but-continuing

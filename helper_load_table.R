@@ -21,10 +21,6 @@ helper_load_table <- function(
   table_data = NULL
   ) {
 
-  if (!DBI::dbIsValid(connection)) {
-    base::stop("staging connection is not valid", call. = FALSE)
-  }
-
   if (!base::inherits(connection, "PqConnection")) {
     base::stop(
       "staging connection must be created by RPostgres::Postgres(); ",
@@ -32,6 +28,10 @@ helper_load_table <- function(
       base::paste(base::class(connection), collapse = ", "),
       call. = FALSE
     )
+  }
+
+  if (!DBI::dbIsValid(connection)) {
+    base::stop("staging connection is not valid", call. = FALSE)
   }
 
   if (base::is.null(table_data)) {
